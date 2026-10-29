@@ -34,6 +34,8 @@ CREATE TABLE raffles (
   draw_at timestamptz NOT NULL,
   draw_method draw_method NOT NULL,
   lottery_name text,
+  description text NOT NULL DEFAULT '',
+  contact text,
   hold_minutes int NOT NULL DEFAULT 120 CHECK (hold_minutes > 0),
   payment_accounts jsonb NOT NULL DEFAULT '{}',
   share_code text UNIQUE,  -- código corto para entrar a esta rifa: R + 7 caracteres
@@ -48,9 +50,16 @@ CREATE TABLE raffles (
 
 CREATE TABLE raffle_images (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  raffle_id uuid NOT NULL REFERENCES raffles(id) ON DELETE CASCADE,
-  url text NOT NULL, sort int NOT NULL DEFAULT 0
+  uploader_id uuid NOT NULL REFERENCES users(id),
+  raffle_id uuid REFERENCES raffles(id) ON DELETE CASCADE,  -- NULL hasta que se asocia a una rifa
+  sha256 text NOT NULL,
+  mime text NOT NULL,
+  size int NOT NULL,
+  storage_key text NOT NULL,
+  sort int NOT NULL DEFAULT 0,                               -- 0 = portada
+  created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE INDEX raffle_images_raffle_idx ON raffle_images (raffle_id, sort);
 
 CREATE TABLE prizes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

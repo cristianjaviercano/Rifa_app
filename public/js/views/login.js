@@ -29,7 +29,10 @@ export async function loginView(_, ctx) {
       h("div", { class: "field" }, h("label", { for: "phone" }, "Tu celular"), input,
         h("div", { class: "hint" }, state.config.otp_on_screen ? "En esta fase de pruebas el código se muestra en pantalla." : "Te enviaremos un código por mensaje para verificar tu número.")),
       invite && h("div", { class: "field" }, h("label", { for: "invite" }, "Clave de acceso a la beta"), invite), err, btn);
-    root.replaceChildren(h("h1", null, "Entrar"), form);
+    const creating = (state.next || "").startsWith("/admin");
+    root.replaceChildren(h("h1", null, "Entrar"),
+      creating && h("p", { class: "muted", id: "login-why" }, "Para crear y administrar tu rifa primero verificamos tu celular. Al terminar volverás al formulario."),
+      form);
     input.focus();
   };
 

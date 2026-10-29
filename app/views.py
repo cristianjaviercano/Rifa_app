@@ -13,7 +13,8 @@ router = APIRouter(prefix="/api/v1")
 
 COUNTS = (" (SELECT count(*) FROM tickets t WHERE t.raffle_id=r.id) AS tickets_total,"
           " (SELECT count(*) FROM tickets t WHERE t.raffle_id=r.id AND t.status IN ('PAGADO','GANADOR')) AS tickets_sold,"
-          " (SELECT count(*) FROM tickets t WHERE t.raffle_id=r.id AND t.status='CONGELADO') AS tickets_held")
+          " (SELECT count(*) FROM tickets t WHERE t.raffle_id=r.id AND t.status='CONGELADO') AS tickets_held,"
+          " (SELECT i.id FROM raffle_images i WHERE i.raffle_id=r.id ORDER BY i.sort LIMIT 1) AS cover_id")
 PUBLIC = ("r.id, r.title, r.ticket_price, r.currency, r.numbers_per_ticket, r.total_numbers, r.sales_close_at,"
           " r.draw_at, r.draw_method, r.status, r.owner_id,")
 
@@ -25,7 +26,7 @@ def me(user=Depends(current_user), conn=Depends(get_conn)):
 
 @router.get("/raffles/{rid}")
 def detail(rid: UUID, conn=Depends(get_conn), user=Depends(optional_user)):
-    r = conn.execute(f"SELECT {PUBLIC} r.terms_md, r.hold_minutes, r.payment_accounts, r.lottery_name, r.visibility, r.share_code,"
+    r = conn.execute(f"SELECT {PUBLIC} r.terms_md, r.hold_minutes, r.payment_accounts, r.lottery_name, r.description, r.contact, r.visibility, r.share_code,"
                      f" u.name AS owner_name, u.room_code, u.room_name,{COUNTS}"
                      " FROM raffles r JOIN users u ON u.id=r.owner_id WHERE r.id=%s", (rid,)).fetchone()
     if not r or (r["status"] == "DRAFT" and not (user and user["id"] == r["owner_id"])):
@@ -37,6 +38,7 @@ def detail(rid: UUID, conn=Depends(get_conn), user=Depends(optional_user)):
         r["room_name"] = r["room_name"] or f"Sala de {r['owner_name']}"
     else:  # rifa independiente: no se revela la sala
         r["room_code"] = None; r["room_name"] = None
+    r["images"] = [x["id"] for x in conn.execute("SELECT id FROM raffle_images WHERE raffle_id=%s ORDER BY sort", (rid,)).fetchall()]
     r["prizes"] = conn.execute("SELECT id, kind, rank, description FROM prizes WHERE raffle_id=%s ORDER BY rank", (rid,)).fetchall()
     if r["status"] == "DRAWN":
         r["draw"] = conn.execute("SELECT method, winning_number, source_url, executed_at FROM draws WHERE raffle_id=%s", (rid,)).fetchone()

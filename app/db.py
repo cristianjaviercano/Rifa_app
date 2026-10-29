@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import os
+import re
 import time
 from pathlib import Path
 
@@ -10,12 +11,23 @@ from psycopg.rows import dict_row
 log = logging.getLogger("sgrs.db")
 
 
-def _dsn() -> str:
-    return (os.environ.get("SGRS_DSN") or os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
-            or "postgresql://postgres@localhost:5433/sgrs")
+def find_dsn(environ) -> "str | None":
+    """Busca la cadena de conexión. Vercel/Neon puede inyectarla con prefijo personalizado
+    (p. ej. STORAGE_URL), así que además de los nombres habituales se rastrea cualquier variable
+    cuyo valor sea una URL postgres, prefiriendo la del pooler (no *_UNPOOLED / *_NON_POOLING)."""
+    for k in ("SGRS_DSN", "DATABASE_URL", "POSTGRES_URL", "POSTGRES_PRISMA_URL"):
+        if environ.get(k):
+            return environ[k]
+    cands = sorted((k, v) for k, v in environ.items() if v.startswith(("postgres://", "postgresql://")))
+    pooled = [c for c in cands if not re.search(r"NON_POOLING|UNPOOLED|DIRECT", c[0], re.I)]
+    for _, v in pooled or cands:
+        return v
+    return None
 
 
-DSN = _dsn()
+_FOUND = find_dsn(os.environ)
+DSN_CONFIGURED = _FOUND is not None or os.environ.get("SGRS_ENV") != "production"
+DSN = _FOUND or "postgresql://postgres@localhost:5433/sgrs"
 SCHEMA = Path(__file__).resolve().parent.parent / "schema.sql"
 _schema_ok = False
 _last_maintenance = 0.0
@@ -60,6 +72,9 @@ def lazy_maintenance(conn, force: bool = False) -> dict:
 
 def get_conn():
     """Una conexión por petición; commit al terminar, rollback ante excepción."""
+    if not DSN_CONFIGURED:  # producción sin base conectada: error claro en vez de un 500 opaco
+        from fastapi import HTTPException
+        raise HTTPException(503, {"code": "DB_NOT_CONFIGURED"})
     # prepare_threshold=None: compatible con pooler de transacciones (Neon/pgbouncer)
     with psycopg.connect(DSN, row_factory=dict_row, prepare_threshold=None, connect_timeout=10) as conn:
         if os.environ.get("SGRS_AUTO_SCHEMA") == "1":

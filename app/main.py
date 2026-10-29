@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from .audit import write_audit
 from .db import get_conn
+from .images import router as images_router
 from .notify import enqueue, public_url
 from .ops import router as ops_router
 from .auth import router as auth_router
@@ -22,6 +23,7 @@ app = FastAPI(title="SGRS API", version="1.0")
 app.include_router(raffles_router)
 app.include_router(auth_router)
 app.include_router(uploads_router)
+app.include_router(images_router)
 app.include_router(views_router)
 app.include_router(rooms_router)
 app.include_router(webhooks_router)

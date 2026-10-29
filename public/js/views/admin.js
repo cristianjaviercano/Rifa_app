@@ -1,6 +1,7 @@
 import { h, money, fmtDate, chip, toast, modal, liveCountdown, padNum, skeleton } from "../dom.js";
 import { api } from "../api.js";
 import { state } from "../state.js";
+import { prepareImage } from "../image.js";
 import { STATUS, raffleCard } from "./home.js";
 import { shareDialog, shareRoomDialog, raffleLink, roomLink, copyText, prettyCode } from "../share.js";
 
@@ -64,6 +65,23 @@ export async function adminNewView(_, ctx) {
     h("option", { value: "INTERNAL_CSPRNG" }, "Interno (generador aleatorio seguro)"), h("option", { value: "EXTERNAL_LOTTERY" }, "Externo (lotería oficial)")));
   const lotteryField = field("lottery", "Nombre de la lotería", inp("lottery", { placeholder: "Ej. Lotería de Bogotá" }));
   lotteryField.hidden = true;
+  // Portada y galería: la primera imagen es la portada; se suben al guardar.
+  const MAX_IMAGES = 5;
+  let picked = [];
+  const previews = h("div", { class: "thumbs" });
+  const coverIn = h("input", { id: "cover", type: "file", accept: "image/*", multiple: true, onchange: (e) => {
+    picked = [...picked, ...e.target.files].slice(0, MAX_IMAGES); e.target.value = ""; paintThumbs();
+  } });
+  function paintThumbs() {
+    previews.replaceChildren(...picked.map((file, i) => {
+      const url = URL.createObjectURL(file);
+      return h("figure", { class: "thumb" }, h("img", { src: url, alt: i ? `Imagen ${i + 1}` : "Portada", onload: () => URL.revokeObjectURL(url) }),
+        h("figcaption", null, i ? `Imagen ${i + 1}` : "Portada"),
+        h("div", { class: "row" },
+          i > 0 && h("button", { class: "btn ghost small", type: "button", "aria-label": "Usar como portada", onclick: () => { picked.unshift(...picked.splice(i, 1)); paintThumbs(); } }, "Portada"),
+          h("button", { class: "btn ghost small", type: "button", "aria-label": "Quitar imagen", onclick: () => { picked.splice(i, 1); paintThumbs(); } }, "Quitar")));
+    }));
+  }
   const err = h("div", { class: "err", role: "alert" });
   const accounts = ["Nequi", "Daviplata", "Bre-B", "PayPal"].map((n) => [n, h("input", { "aria-label": n, placeholder: n + " (número o enlace)", maxlength: 120 })]);
 
@@ -75,6 +93,7 @@ export async function adminNewView(_, ctx) {
       numbers_per_ticket: Number(f.per.value), ticket_price: Number(f.price.value),
       sales_close_at: f.close.value && toIso(f.close.value), draw_at: f.draw.value && toIso(f.draw.value),
       draw_method: method.value, lottery_name: method.value === "EXTERNAL_LOTTERY" ? f.lottery.value.trim() : null,
+      description: f.description.value.trim(), contact: f.contact.value.trim() || null,
       hold_minutes: Number(f.hold.value), prizes, referrer_raffle_id: state.referrer || null, visibility: f.visibility.value,
       payment_accounts: Object.fromEntries(accounts.filter(([, i]) => i.value.trim()).map(([n, i]) => [n, i.value.trim()])),
     };
@@ -82,6 +101,11 @@ export async function adminNewView(_, ctx) {
     if (!body.sales_close_at || !body.draw_at) { err.textContent = "Indica las fechas de cierre y de sorteo."; return; }
     if (body.total_numbers % body.numbers_per_ticket) { err.textContent = "El total de números debe ser divisible por los números por boleta."; return; }
     try {
+      body.image_ids = [];
+      for (const file of picked) {
+        const blob = await prepareImage(file, 1600, 300 * 1024);
+        body.image_ids.push((await api.putBlob("/uploads/image", blob)).image_id);
+      }
       const r = await api.post("/raffles", body);
       if (publish) await api.post(`/raffles/${r.id}/publish`);
       state.referrer = null;
@@ -94,10 +118,15 @@ export async function adminNewView(_, ctx) {
     h("h1", null, "Nueva rifa"),
     h("div", { class: "card" },
       field("title", "Título", inp("title", { maxlength: 120, placeholder: "Ej. Rifa Moto 2026" })),
+      field("description", "Descripción corta", (f.description = h("textarea", { id: "description", maxlength: 1000, placeholder: "¿De qué trata? ¿Para qué es la rifa?" })), "Es lo primero que lee quien abre tu enlace."),
+      field("contact", "Contacto del organizador (opcional)", inp("contact", { maxlength: 120, placeholder: "Ej. WhatsApp 300 123 4567" }), "Los compradores lo verán para escribirte."),
       field("terms", "Términos y condiciones", (f.terms = h("textarea", { id: "terms" }))),
       field("total", "Cantidad total de números", inp("total", { type: "number", inputmode: "numeric", value: 100, min: 1 })),
       field("per", "Números por boleta", inp("per", { type: "number", inputmode: "numeric", value: 1, min: 1 })),
       field("price", "Valor de la boleta (COP)", inp("price", { type: "number", inputmode: "numeric", value: 10000, min: 1 }))),
+    h("div", { class: "card" }, h("h2", null, "Imagen de portada y galería"),
+      h("p", { class: "muted" }, `Sube hasta ${MAX_IMAGES} imágenes (PNG, JPG o WebP). La primera es la portada.`),
+      coverIn, previews),
     h("div", { class: "card" },
       field("close", "Cierre de ventas", inp("close", { type: "datetime-local", value: soon(24 * 6) })),
       field("draw", "Fecha del sorteo", inp("draw", { type: "datetime-local", value: soon(24 * 7) })),

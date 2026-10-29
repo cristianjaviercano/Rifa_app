@@ -40,6 +40,9 @@ class RaffleIn(BaseModel):
     draw_method: str = Field(pattern="^(INTERNAL_CSPRNG|EXTERNAL_LOTTERY)$")
     lottery_name: Optional[str] = None
     hold_minutes: int = Field(default=120, gt=0)
+    description: str = Field(default="", max_length=1000)
+    contact: Optional[str] = Field(default=None, max_length=120)
+    image_ids: list[UUID] = Field(default=[], max_length=5)  # la primera es la portada
     payment_accounts: dict[str, str] = {}
     referrer_raffle_id: Optional[UUID] = None
     visibility: str = Field(default="PORTFOLIO", pattern="^(PORTFOLIO|LINK)$")
@@ -70,11 +73,16 @@ def create_raffle(b: RaffleIn, user=Depends(current_user), conn=Depends(get_conn
         raise err(422, "LOTTERY_NAME_REQUIRED")
     r = conn.execute(
         "INSERT INTO raffles (owner_id,title,terms_md,total_numbers,numbers_per_ticket,ticket_price,"
-        " sales_close_at,draw_at,draw_method,lottery_name,hold_minutes,payment_accounts,referrer_raffle_id,visibility) VALUES"
-        " (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,(SELECT id FROM raffles WHERE id=%s),%s) RETURNING id",
+        " sales_close_at,draw_at,draw_method,lottery_name,hold_minutes,payment_accounts,referrer_raffle_id,visibility,description,contact) VALUES"
+        " (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,(SELECT id FROM raffles WHERE id=%s),%s,%s,%s) RETURNING id",
         (user["id"], b.title, b.terms_md, b.total_numbers, b.numbers_per_ticket, b.ticket_price,
          b.sales_close_at, b.draw_at, b.draw_method, b.lottery_name, b.hold_minutes,
-         json.dumps(b.payment_accounts), b.referrer_raffle_id, b.visibility)).fetchone()
+         json.dumps(b.payment_accounts), b.referrer_raffle_id, b.visibility,
+         b.description.strip(), (b.contact or "").strip() or None)).fetchone()
+    for pos, iid in enumerate(dict.fromkeys(b.image_ids)):
+        if not conn.execute("UPDATE raffle_images SET raffle_id=%s, sort=%s WHERE id=%s AND uploader_id=%s AND raffle_id IS NULL"
+                            " RETURNING id", (r["id"], pos, iid, user["id"])).fetchone():
+            raise err(422, "IMAGE_NOT_FOUND")  # revierte toda la creación
     for p in b.prizes:
         conn.execute("INSERT INTO prizes (raffle_id,kind,rank,description,rule) VALUES (%s,%s,%s,%s,%s::jsonb)",
                      (r["id"], p.kind, p.rank, p.description, json.dumps({"offset": p.offset})))

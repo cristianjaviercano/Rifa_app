@@ -8,7 +8,8 @@ export function raffleCard(r, href) {
   const [label, kind] = STATUS[r.status] || [r.status, "neutral"];
   const pct = r.tickets_total ? Math.round((r.tickets_sold / r.tickets_total) * 100) : 0;
   const bar = h("i"); bar.style.width = pct + "%";
-  return h("a", { class: "card", href }, 
+  return h("a", { class: "card", href },
+    r.cover_id && h("img", { class: "cover", src: `/api/v1/raffle-images/${r.cover_id}`, alt: "", loading: "lazy" }),
     h("div", { class: "row" }, h("h2", null, r.title), chip(label, kind)),
     h("div", { class: "row" }, h("span", { class: "price" }, money(r.ticket_price, r.currency)),
       h("span", { class: "muted" }, r.numbers_per_ticket > 1 ? `${r.numbers_per_ticket} números por boleta` : "por número")),

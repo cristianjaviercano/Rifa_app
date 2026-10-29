@@ -7,7 +7,7 @@ No hay worker: el mantenimiento (expirar reservas, cerrar rifas, recordatorios) 
 ## Variables de entorno
 | Variable | Valor |
 |---|---|
-| `DATABASE_URL` | La inyecta la integración de Neon (el esquema se crea solo con `SGRS_AUTO_SCHEMA=1`) |
+| `DATABASE_URL` | La inyecta la integración de Neon (el esquema se crea solo con `SGRS_AUTO_SCHEMA=1`). Con prefijo personalizado (p. ej. `STORAGE_URL`) la app también la encuentra: rastrea cualquier variable con una URL `postgres://`, prefiriendo la del pooler |
 | `SGRS_ENV` | `production` |
 | `SGRS_AUTO_SCHEMA` | `1` |
 | `SGRS_STORAGE` | `db` (comprobantes en PostgreSQL; límite 4 MB por archivo) |
@@ -22,3 +22,7 @@ No hay worker: el mantenimiento (expirar reservas, cerrar rifas, recordatorios) 
 - Cualquier persona con la clave puede iniciar sesión con **cualquier** número (el código no viaja por mensajería): úsese solo con pagos ficticios.
 - Los proyectos Vercel con Hobby limitan los Cron a una ejecución diaria.
 - Para salir de la beta: configurar WhatsApp o SMS (`docs/WHATSAPP.md`), quitar `SGRS_DEV_ECHO_OTP` y `SGRS_BETA_KEY`.
+
+## Diagnóstico
+- `503 DB_NOT_CONFIGURED` (en producción): ninguna variable de entorno contiene una URL postgres. Conecta Neon al proyecto en el entorno *Production* y **redespliega**.
+- Las variables nuevas solo se aplican a despliegues nuevos.

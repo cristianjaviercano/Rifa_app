@@ -90,7 +90,11 @@ export async function raffleView([rid], ctx) {
   }
 
   const view = h("div", null,
+    r.images && r.images.length ? h("div", { class: "gallery", "aria-label": "Imágenes de la rifa" }, r.images.map((id, i) =>
+      h("img", { src: `/api/v1/raffle-images/${id}`, alt: i ? `Imagen ${i + 1} de ${r.title}` : `Portada de ${r.title}`, loading: i ? "lazy" : "eager" }))) : null,
     h("div", { class: "row" }, h("h1", null, r.title), chip(statusLabel, statusKind)),
+    r.description && h("p", { id: "raffle-description" }, r.description),
+    r.contact && h("p", { class: "muted", id: "raffle-contact" }, "Contacto del organizador: ", r.contact),
     h("div", { class: "row wrap" },
       r.is_owner ? h("a", { href: `#/admin/r/${rid}` }, "Administrar esta rifa →")
         : r.room_code ? h("a", { href: `#/s/${r.room_code}`, id: "see-room" }, `Ver más rifas de ${r.owner_name} →`) : h("span"),

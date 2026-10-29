@@ -155,3 +155,11 @@ details.card > summary { min-height: 28px; display: flex; align-items: center; }
 .vis-row { margin: -4px 0 12px; }
 .code-row { font-size: .9rem; }
 .code { letter-spacing: .06em; }
+
+.cover { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; margin-bottom: 10px; background: var(--line); }
+.gallery { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 0 12px; border-radius: var(--radius); }
+.gallery img { flex: 0 0 100%; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; scroll-snap-align: start; background: var(--line); border-radius: var(--radius); }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 10px; }
+.thumb { margin: 0; }
+.thumb img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; background: var(--line); }
+.thumb figcaption { font-size: .75rem; color: var(--muted); margin: 4px 0; }
