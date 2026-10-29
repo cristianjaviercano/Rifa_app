@@ -18,6 +18,23 @@ No hay worker: el mantenimiento (expirar reservas, cerrar rifas, recordatorios) 
 | `SGRS_JWT_SECRET` | Opcional; si falta, se deriva de `DATABASE_URL` |
 | `SGRS_PUBLIC_URL` | URL pública (para los enlaces de las notificaciones) |
 
+## Variables adicionales (opcionales)
+| Variable | Efecto |
+|---|---|
+| `SGRS_OTP_IP_LIMIT` | Códigos OTP por hora y por IP (def. 20). Súbela si varios testers comparten red |
+| `SGRS_MAX_RAFFLES_PER_DAY` | Rifas que un usuario puede crear por día (def. 10) |
+| `SGRS_POOL_MAX` | Conexiones por instancia a la base (def. 5; el pool se activa solo en producción) |
+| `SGRS_REQUIRE_TERMS` | `1` exige aceptar términos y privacidad (activo por defecto en producción) |
+| `SENTRY_DSN` | Activa la captura de errores (sin datos personales ni cuerpos de petición) |
+| `SGRS_LOG_LEVEL` | `INFO` por defecto; los registros son una línea JSON por petición, sin datos personales |
+
+## Operación
+- **Monitor externo:** apunta UptimeRobot/Better Stack a `https://TU-URL/api/v1/health` (200 = base de datos responde; 503 = degradado).
+- **Migraciones:** con `SGRS_AUTO_SCHEMA=1` se aplican solas al primer arranque tras cada despliegue. Todo cambio de esquema es un archivo nuevo `migrations/NNNN_nombre.sql`; nunca se edita uno ya publicado. Manual: `python -m app.migrate`.
+- **Cron diario** (`/api/v1/cron/tick`): mantenimiento y verificación de la cadena de auditoría (`auditoria_ok`). Si fuera `false`, el servidor registra un error.
+- **Avisos de WhatsApp:** se envían al aprobar un pago y al sortear (no esperan al cron); los pendientes se reenvían desde el panel del organizador.
+- **Referencia de error:** una respuesta 500 trae `request_id`; es el mismo valor que aparece en los registros (`rid`).
+
 ## Limitaciones de la beta
 - Cualquier persona con la clave puede iniciar sesión con **cualquier** número (el código no viaja por mensajería): úsese solo con pagos ficticios.
 - Los proyectos Vercel con Hobby limitan los Cron a una ejecución diaria.

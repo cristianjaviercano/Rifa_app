@@ -32,7 +32,7 @@ def current_user(cred: HTTPAuthorizationCredentials = Depends(_bearer)) -> dict:
     try:
         p = jwt.decode(cred.credentials, SECRET, algorithms=["HS256"])
     except jwt.PyJWTError:
-        raise HTTPException(401, "TOKEN_INVALID")
+        raise HTTPException(401, "TOKEN_INVALID") from None
     return {"id": UUID(p["sub"]), "role": p["role"]}
 
 

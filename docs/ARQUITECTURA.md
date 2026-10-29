@@ -51,7 +51,7 @@ Estados de boleta: `DISPONIBLE → CONGELADO → PAGADO → GANADOR` (`CONGELADO
 
 | Servicio | Imagen | Función |
 |---|---|---|
-| `db` | postgres:16-alpine (volumen `pgdata`) | Datos; carga `schema.sql` en la primera ejecución |
+| `db` | postgres:16-alpine (volumen `pgdata`) | Datos; el esquema se aplica con migraciones al arrancar (`SGRS_AUTO_SCHEMA=1`) |
 | `api` | Dockerfile (uvicorn) | Endpoints REST |
 | `worker` | misma imagen, `python -m app.worker` | Cada 30 s: expira reservas y cierra rifas vencidas |
 
@@ -63,7 +63,7 @@ docker compose --env-file .env up --build
 ## Pruebas rápidas
 
 ```bash
-python -m pytest -q                       # 40 pruebas, incluida concurrencia
+python -m pytest -q                       # 101 pruebas, incluida concurrencia
 SGRS_DSN=postgresql://... python -m scripts.simulate --buyers 40 --seed 7 --method EXTERNAL_LOTTERY
 ```
 E2E con navegador real en viewport móvil (`e2e/e2e.mjs`, requiere `SGRS_DEV_ECHO_OTP=1`, solo pruebas): crea rifa, compra con comprobante, aprueba, cierra, sortea, verifica resultado público, instalabilidad y modo sin conexión.

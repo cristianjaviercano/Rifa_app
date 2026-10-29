@@ -39,12 +39,15 @@ export async function loginView(_, ctx) {
   const stepCode = (devCode) => {
     const code = h("input", { id: "code", inputmode: "numeric", autocomplete: "one-time-code", maxlength: 6, pattern: "\\d{6}", placeholder: "••••••", required: true });
     const name = h("input", { id: "name", autocomplete: "name", placeholder: "Opcional si ya tienes cuenta", maxlength: 80 });
+    const accept = h("input", { id: "accept", type: "checkbox" });
     const err = h("div", { class: "err", role: "alert" });
     const btn = h("button", { class: "btn block", type: "submit" }, "Verificar");
     const form = h("form", { class: "card", novalidate: true, onsubmit: async (e) => {
-      e.preventDefault(); err.textContent = ""; btn.disabled = true;
+      e.preventDefault(); err.textContent = "";
+      if (state.config.terms_required && !accept.checked) { err.textContent = "Para continuar acepta los términos y la política de privacidad."; return; }
+      btn.disabled = true;
       try {
-        const r = await api.post("/auth/otp/verify", { phone, code: code.value.trim(), name: name.value.trim() || "Usuario" });
+        const r = await api.post("/auth/otp/verify", { phone, code: code.value.trim(), name: name.value.trim() || "Usuario", accept_terms: accept.checked });
         auth.set(r.access_token);
         await loadUser();
         toast("Sesión iniciada");
@@ -55,7 +58,9 @@ export async function loginView(_, ctx) {
       h("p", null, devCode ? "Verificando el número " : "Enviamos un código a ", h("b", null, phone), "."),
       devCode && h("p", { class: "chip warn", "data-testid": "dev-code" }, "Beta · tu código es " + devCode),
       h("div", { class: "field" }, h("label", { for: "code" }, "Código de 6 dígitos"), code),
-      h("div", { class: "field" }, h("label", { for: "name" }, "Tu nombre"), name), err, btn,
+      h("div", { class: "field" }, h("label", { for: "name" }, "Tu nombre"), name),
+      h("label", { class: "check", for: "accept" }, accept, h("span", null, "Acepto los ", h("a", { href: "#/terminos", target: "_blank", rel: "noopener" }, "términos y condiciones"), " y la ", h("a", { href: "#/privacidad", target: "_blank", rel: "noopener" }, "política de privacidad"), ".")),
+      err, btn,
       h("p", null, h("button", { class: "btn ghost small", type: "button", onclick: stepPhone }, "Cambiar número")));
     root.replaceChildren(h("h1", null, "Verifica tu número"), form);
     code.focus();

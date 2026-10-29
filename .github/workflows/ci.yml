@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.13"}
       - run: pip install -r requirements.txt
-      - run: psql "$PG_DSN" -f schema.sql
+      - run: python -m app.migrate
       - run: npm install --no-save playwright && npx playwright install --with-deps chromium
       - run: |
           nohup python -m uvicorn app.main:app --port 8099 > api.log 2>&1 &

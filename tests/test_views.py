@@ -62,3 +62,36 @@ def test_static_app_and_security_headers():
     assert r.headers["cache-control"] == "no-cache"
     assert client.get("/sw.js").status_code == 200
     assert client.get("/api/v1/auth/config").status_code == 200  # la API no queda tapada por el mount estático
+
+
+def test_board_is_compact_and_conditional(raffle, mkuser):
+    r, b = raffle(n=10), mkuser()
+    res = client.post(f"/api/v1/raffles/{r['id']}/reservations", headers=H(b),
+                      json={"serials": [3, 4], "platform": "NEQUI", "external_ref": "X1", "amount_declared": 20000})
+    assert res.status_code == 201, res.text
+    g = client.get(f"/api/v1/raffles/{r['id']}/board", headers=H(b))
+    j = g.json()
+    assert j["states"] == "DDCCDDDDDD" and j["mine"] == [3, 4] and j["npt"] == 1 and j["total"] == 10
+    assert len(g.content) < 200
+    anon = client.get(f"/api/v1/raffles/{r['id']}/board").json()
+    assert anon["mine"] == [] and anon["states"] == j["states"]
+    etag = g.headers["etag"]
+    assert client.get(f"/api/v1/raffles/{r['id']}/board", headers={**H(b), "If-None-Match": etag}).status_code == 304
+    # un cambio de estado cambia el ETag
+    tid = res.json()["transaction_id"]
+    client.post(f"/api/v1/transactions/{tid}/approve", headers=H({"id": r["owner"], "role": "USER"}))
+    g2 = client.get(f"/api/v1/raffles/{r['id']}/board", headers={**H(b), "If-None-Match": etag})
+    assert g2.status_code == 200 and g2.json()["states"] == "DDPPDDDDDD"
+
+
+def test_reservation_by_serial_conflicts_and_validation(raffle, mkuser):
+    r, a, b = raffle(n=10), mkuser(), mkuser()
+    url = f"/api/v1/raffles/{r['id']}/reservations"
+    mk = lambda s, ref: {"serials": s, "platform": "NEQUI", "external_ref": ref, "amount_declared": 10000 * len(s)}
+    assert client.post(url, json=mk([5], "A1"), headers=H(a)).status_code == 201
+    clash = client.post(url, json=mk([5, 6], "B1"), headers=H(b))
+    assert clash.status_code == 409 and clash.json()["detail"]["conflicts"] == [5]   # serial, no UUID
+    assert client.post(url, json=mk([99], "B2"), headers=H(b)).status_code == 422     # no existe
+    both = {**mk([7], "B3"), "ticket_ids": [str(r["tickets"][7])]}
+    assert client.post(url, json=both, headers=H(b)).status_code == 422               # uno u otro, no ambos
+    assert client.post(url, json={"platform": "NEQUI", "external_ref": "B4", "amount_declared": 0}, headers=H(b)).status_code == 422

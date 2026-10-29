@@ -36,7 +36,7 @@ async def receive(request: Request, conn=Depends(get_conn)):
     try:
         data = json.loads(raw)
     except ValueError:
-        raise err(400, "BAD_JSON")
+        raise err(400, "BAD_JSON") from None
     for entry in data.get("entry", []):
         for ch in entry.get("changes", []):
             v = ch.get("value", {})

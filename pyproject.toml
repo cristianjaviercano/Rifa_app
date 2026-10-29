@@ -2,7 +2,7 @@
 name = "rifa-app"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["fastapi", "psycopg[binary]", "pyjwt", "httpx", "pillow"]
+dependencies = ["fastapi", "psycopg[binary,pool]", "pyjwt", "httpx", "pillow", "sentry-sdk[fastapi]"]
 
 [tool.vercel]
 entrypoint = "index:app"

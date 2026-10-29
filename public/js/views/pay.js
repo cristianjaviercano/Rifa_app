@@ -47,14 +47,14 @@ export async function payView([rid], ctx) {
         proof_id = (await api.putBlob("/uploads/proof", blob)).proof_id;
       }
       const res = await api.post(`/raffles/${rid}/reservations`, {
-        ticket_ids: picks.map(([id]) => id), platform: platform.value,
+        serials: picks.map(([serial]) => serial), platform: platform.value,
         external_ref: ref.value.trim() || null, proof_id, amount_declared: total,
       }, { "Idempotency-Key": idem });
       sel.clear();
       done(res);
     } catch (x) {
       if (x.code === "TICKET_UNAVAILABLE") {
-        (x.extra.conflicts || []).forEach((id) => sel.delete(id));
+        (x.extra.conflicts || []).forEach((serial) => sel.delete(serial));
         toast(x.message, "bad"); return ctx.go(`/r/${rid}`);
       }
       err.textContent = x.message; submit.disabled = false; submit.textContent = `Enviar para verificación · ${money(total, r.currency)}`;

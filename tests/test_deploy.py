@@ -20,10 +20,12 @@ def phone():
 
 
 def test_config_and_beta_gate(monkeypatch):
-    assert client.get("/api/v1/auth/config").json() == {"beta": False, "otp_on_screen": False}
+    cfg = client.get("/api/v1/auth/config").json()
+    assert (cfg["beta"], cfg["otp_on_screen"]) == (False, False)
     monkeypatch.setenv("SGRS_BETA_KEY", "clave-beta-123")
     monkeypatch.setenv("SGRS_DEV_ECHO_OTP", "1")
-    assert client.get("/api/v1/auth/config").json() == {"beta": True, "otp_on_screen": True}
+    cfg = client.get("/api/v1/auth/config").json()
+    assert (cfg["beta"], cfg["otp_on_screen"]) == (True, True)
     p = phone()
     assert client.post("/api/v1/auth/otp/request", json={"phone": p}).status_code == 403
     assert client.post("/api/v1/auth/otp/request", json={"phone": p, "invite": "otra"}).status_code == 403
@@ -55,7 +57,8 @@ def test_code_on_screen_requires_beta_key_in_production(monkeypatch):
     monkeypatch.setenv("SGRS_DEV_ECHO_OTP", "1")
     monkeypatch.delenv("SGRS_BETA_KEY", raising=False)
     monkeypatch.delenv("WHATSAPP_TOKEN", raising=False)
-    assert client.get("/api/v1/auth/config").json() == {"beta": False, "otp_on_screen": False}
+    cfg = client.get("/api/v1/auth/config").json()
+    assert (cfg["beta"], cfg["otp_on_screen"]) == (False, False)
     r = client.post("/api/v1/auth/otp/request", json={"phone": phone()})
     assert r.status_code == 502 and "dev_code" not in r.text
 
@@ -83,7 +86,7 @@ def test_cron_requires_secret(monkeypatch):
     assert client.get("/api/v1/cron/tick").status_code == 401
     assert client.get("/api/v1/cron/tick", headers={"Authorization": "Bearer mal"}).status_code == 401
     r = client.get("/api/v1/cron/tick", headers={"Authorization": "Bearer s3cr3t"})
-    assert r.status_code == 200 and set(r.json()) == {"expiradas", "cerradas", "recordatorios"}
+    assert r.status_code == 200 and set(r.json()) == {"expiradas", "cerradas", "recordatorios", "auditoria_ok"} and r.json()["auditoria_ok"] is True
 
 
 def test_lazy_maintenance_expires_without_worker(db, monkeypatch, raffle, mkuser):
@@ -119,3 +122,41 @@ def test_jwt_secret_derived_in_production(monkeypatch):
     monkeypatch.setenv("SGRS_ENV", "production")
     s = security._secret()
     assert s == appdb.secret_fallback() and s != "dev-only-change-me" and len(s) == 64
+
+
+def _login_code(p):
+    r = client.post("/api/v1/auth/otp/request", json={"phone": p})
+    return re.search(r"\d{6}", __import__("app.sms", fromlist=["x"]).outbox[-1][1]).group() if r.status_code == 202 else None
+
+
+def test_terms_acceptance_is_required_and_recorded(db, monkeypatch):
+    from app import legal
+    monkeypatch.setenv("SGRS_REQUIRE_TERMS", "1")
+    cfg = client.get("/api/v1/auth/config").json()
+    assert cfg["terms_required"] is True and cfg["terms_version"] == legal.TERMS_VERSION
+    p = phone()
+    code = _login_code(p)
+    no = client.post("/api/v1/auth/otp/verify", json={"phone": p, "code": code, "name": "Ana"})
+    assert no.status_code == 422 and no.json()["detail"]["code"] == "TERMS_REQUIRED"
+    assert db.execute("SELECT count(*) c FROM users WHERE phone_e164=%s", (p,)).fetchone()["c"] == 0
+    ok = client.post("/api/v1/auth/otp/verify", json={"phone": p, "code": code, "name": "Ana", "accept_terms": True})
+    assert ok.status_code == 200  # el código seguía vigente tras el rechazo
+    u = db.execute("SELECT terms_accepted_at, terms_version FROM users WHERE phone_e164=%s", (p,)).fetchone()
+    assert u["terms_accepted_at"] is not None and u["terms_version"] == legal.TERMS_VERSION
+    assert db.execute("SELECT count(*) c FROM audit_log WHERE action='ACCEPT_TERMS'").fetchone()["c"] >= 1
+    # reingreso con la misma versión: ya no se pide
+    code2 = None
+    db.execute("UPDATE otp_codes SET created_at = now() - interval '2 minutes' WHERE phone_e164=%s", (p,))
+    code2 = _login_code(p)
+    assert client.post("/api/v1/auth/otp/verify", json={"phone": p, "code": code2}).status_code == 200
+    # una versión nueva de los textos vuelve a exigirlo
+    monkeypatch.setattr(legal, "TERMS_VERSION", "otra-version")
+    db.execute("UPDATE otp_codes SET created_at = now() - interval '2 minutes' WHERE phone_e164=%s", (p,))
+    code3 = _login_code(p)
+    assert client.post("/api/v1/auth/otp/verify", json={"phone": p, "code": code3}).status_code == 422
+
+
+def test_terms_not_required_outside_production(monkeypatch):
+    monkeypatch.delenv("SGRS_REQUIRE_TERMS", raising=False)
+    monkeypatch.delenv("SGRS_ENV", raising=False)
+    assert client.get("/api/v1/auth/config").json()["terms_required"] is False

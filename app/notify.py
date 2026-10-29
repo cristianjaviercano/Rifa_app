@@ -41,12 +41,13 @@ def _backoff(attempts: int) -> int:
     return 30 * 2 ** attempts  # 30 s, 1 min, 2 min, 4 min…
 
 
-def process_one(conn) -> bool:
-    """Envía una notificación pendiente. False si no hay nada que hacer."""
+def process_one(conn, raffle_id=None) -> bool:
+    """Envía una notificación pendiente (opcionalmente solo de una rifa). False si no hay nada que hacer."""
     row = conn.execute(
         "SELECT n.id, n.type, n.payload, n.attempts, u.phone_e164, u.notify_optout FROM notifications n"
         " JOIN users u ON u.id = n.user_id WHERE n.status='QUEUED' AND n.scheduled_at <= now()"
-        " ORDER BY n.id FOR UPDATE OF n SKIP LOCKED LIMIT 1").fetchone()
+        " AND (%s::uuid IS NULL OR n.raffle_id = %s) ORDER BY n.id FOR UPDATE OF n SKIP LOCKED LIMIT 1",
+        (raffle_id, raffle_id)).fetchone()
     if not row:
         return False
     if row["notify_optout"]:
@@ -70,7 +71,7 @@ def process_one(conn) -> bool:
     return True
 
 
-def process_queue(dsn, limit=50) -> int:
+def process_queue(dsn, limit=50, raffle_id=None) -> int:
     """Una transacción por mensaje: un fallo no revierte los ya enviados."""
     if not whatsapp.config():
         log.warning("WhatsApp no configurado: las notificaciones permanecen en cola")
@@ -78,7 +79,21 @@ def process_queue(dsn, limit=50) -> int:
     sent = 0
     for _ in range(limit):
         with psycopg.connect(dsn, row_factory=dict_row) as conn:
-            if not process_one(conn):
+            if not process_one(conn, raffle_id):
                 break
         sent += 1
     return sent
+
+
+def flush_after_commit(conn, limit=3, raffle_id=None) -> int:
+    """Envía de inmediato (sin esperar al cron) lo que acaba de encolarse. Confirma antes la transacción
+    actual para que el worker vea las filas nuevas; cualquier fallo queda en la cola para reintento."""
+    if os.environ.get("SGRS_FLUSH_ON_COMMIT", "1") == "0" or not whatsapp.config():
+        return 0
+    conn.commit()
+    try:
+        from . import db
+        return process_queue(db.DSN, limit, raffle_id)
+    except Exception:
+        log.exception("envío inmediato falló (queda en cola)")
+        return 0

@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Request, Response
 
 from . import storage
+from . import ratelimit
 from .db import get_conn
 from .raffles import err
 from .security import current_user, optional_user
@@ -16,6 +17,7 @@ IMAGE_MIMES = {"image/png", "image/jpeg", "image/webp"}
 
 @router.put("/uploads/image", status_code=201)
 async def upload_image(request: Request, user=Depends(current_user), conn=Depends(get_conn)):
+    ratelimit.hit(conn, "upload_user", str(user["id"]), limit=60, window=3600)
     if int(request.headers.get("content-length", 0)) > MAX_BYTES:
         raise err(413, "FILE_TOO_LARGE", max=MAX_BYTES)
     data = await request.body()

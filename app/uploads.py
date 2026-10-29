@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Request, Response
 
 from . import storage
+from . import ratelimit
 from .db import get_conn
 from .raffles import err
 from .security import current_user
@@ -25,6 +26,7 @@ def sniff(data: bytes):
 
 @router.put("/uploads/proof", status_code=201)
 async def upload_proof(request: Request, user=Depends(current_user), conn=Depends(get_conn)):
+    ratelimit.hit(conn, "upload_user", str(user["id"]), limit=60, window=3600)
     if int(request.headers.get("content-length", 0)) > MAX_BYTES:
         raise err(413, "FILE_TOO_LARGE", max=MAX_BYTES)
     data = await request.body()

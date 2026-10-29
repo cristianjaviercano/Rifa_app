@@ -20,6 +20,7 @@ SECRET = "appsecret"
 @pytest.fixture
 def wa(monkeypatch, db):
     db.execute("DELETE FROM notifications")
+    monkeypatch.setenv("SGRS_FLUSH_ON_COMMIT", "0")  # las pruebas de la cola verifican el estado QUEUED
     for k, v in {"WHATSAPP_TOKEN": "tok", "WHATSAPP_PHONE_ID": "123", "WHATSAPP_APP_SECRET": SECRET,
                  "WHATSAPP_VERIFY_TOKEN": "vt", "SGRS_PUBLIC_URL": "https://rifa.example"}.items():
         monkeypatch.setenv(k, v)
@@ -198,3 +199,32 @@ def test_winner_does_not_also_get_generic_notice(pg, db, wa):
     assert not db.execute("SELECT 1 FROM notifications WHERE status='QUEUED'").fetchall()
     names = {json.loads(c.content)["template"]["name"] for c in wa.calls}
     assert {"sgrs_pago_confirmado", "sgrs_ganador", "sgrs_sorteo_concluido"} <= names
+
+
+def test_approval_sends_immediately_without_waiting_for_cron(db, wa, monkeypatch, raffle, mkuser):
+    monkeypatch.setenv("SGRS_FLUSH_ON_COMMIT", "1")
+    r, b = raffle(), mkuser()
+    tid = approved_notification(r, b)
+    n = row(db, tid)
+    assert n["status"] == "SENT" and n["provider_msg_id"] and len(wa.calls) == 1
+
+
+def test_immediate_send_failure_keeps_notification_queued(db, wa, monkeypatch, raffle, mkuser):
+    monkeypatch.setenv("SGRS_FLUSH_ON_COMMIT", "1")
+    wa.st["h"] = lambda req: httpx.Response(503, json={"error": {"code": 2, "message": "temporal"}})
+    r, b = raffle(), mkuser()
+    tid = approved_notification(r, b)           # la aprobación no falla aunque WhatsApp sí
+    n = row(db, tid)
+    assert n["status"] == "QUEUED" and n["attempts"] == 1
+
+
+def test_owner_can_flush_and_see_summary(db, wa, monkeypatch, raffle, mkuser):
+    r, b, other = raffle(), mkuser(), mkuser()
+    approved_notification(r, b)
+    own = {"id": r["owner"], "role": "USER"}
+    s = client.get(f"/api/v1/raffles/{r['id']}/notifications", headers=H(own)).json()
+    assert s["counts"]["QUEUED"] == 1 and s["whatsapp"] is True
+    monkeypatch.setenv("SGRS_FLUSH_ON_COMMIT", "1")
+    f = client.post(f"/api/v1/raffles/{r['id']}/notifications/flush", headers=H(own)).json()
+    assert f == {"processed": 1, "queued": 0}
+    assert client.get(f"/api/v1/raffles/{r['id']}/notifications", headers=H(other)).status_code == 403

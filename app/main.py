@@ -1,15 +1,19 @@
+import os
 from decimal import Decimal
+from pathlib import Path
 from typing import Optional
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .audit import write_audit
+from . import observability
 from .db import get_conn
 from .images import router as images_router
-from .notify import enqueue, public_url
-from .ops import router as ops_router
+from .notify import enqueue, flush_after_commit, public_url
+from .ops import health as ops_health, router as ops_router
 from .auth import router as auth_router
 from .raffles import router as raffles_router
 from .uploads import router as uploads_router
@@ -19,6 +23,8 @@ from .rooms import router as rooms_router
 from .security import current_user
 from .share import router as share_router
 
+observability.setup_logging()
+observability.init_sentry()
 app = FastAPI(title="SGRS API", version="1.0")
 app.include_router(raffles_router)
 app.include_router(auth_router)
@@ -28,11 +34,13 @@ app.include_router(views_router)
 app.include_router(rooms_router)
 app.include_router(webhooks_router)
 app.include_router(ops_router)
+app.include_router(ops_health)
 app.include_router(share_router)
 
 
 class ReservationIn(BaseModel):
-    ticket_ids: list[UUID] = Field(min_length=1, max_length=50)
+    ticket_ids: list[UUID] = Field(default=[], max_length=50)
+    serials: list[int] = Field(default=[], max_length=50)  # alternativa compacta a ticket_ids (la usa la interfaz)
     platform: str
     external_ref: Optional[str] = Field(default=None, max_length=64)
     proof_id: Optional[UUID] = None
@@ -74,7 +82,18 @@ def reserve(raffle_id: UUID, body: ReservationIn, user=Depends(current_user),
         raise _err(422, "PLATFORM_INVALID")
     if not (body.external_ref or body.proof_id):
         raise _err(422, "PROOF_REQUIRED")
-    ids = list(dict.fromkeys(body.ticket_ids))
+    if bool(body.ticket_ids) == bool(body.serials):
+        raise _err(422, "SELECTION_REQUIRED")  # exactamente uno de ticket_ids / serials
+    by_serial = {}
+    if body.serials:
+        serials = list(dict.fromkeys(body.serials))
+        rows = conn.execute("SELECT id, serial FROM tickets WHERE raffle_id=%s AND serial = ANY(%s)", (raffle_id, serials)).fetchall()
+        if len(rows) != len(serials):
+            raise _err(422, "TICKET_NOT_FOUND")
+        by_serial = {r["id"]: r["serial"] for r in rows}
+        ids = [r["id"] for r in rows]
+    else:
+        ids = list(dict.fromkeys(body.ticket_ids))
     expected = raffle["ticket_price"] * len(ids)
     if body.amount_declared != expected:
         raise _err(422, "AMOUNT_MISMATCH", expected=str(expected))
@@ -106,7 +125,8 @@ def reserve(raffle_id: UUID, body: ReservationIn, user=Depends(current_user),
     if len(frozen) != len(ids):
         conn.rollback()
         got = {r["id"] for r in frozen}
-        raise _err(409, "TICKET_UNAVAILABLE", conflicts=[str(i) for i in ids if i not in got])
+        lost = [i for i in ids if i not in got]
+        raise _err(409, "TICKET_UNAVAILABLE", conflicts=[by_serial[i] for i in lost] if by_serial else [str(i) for i in lost])
 
     tx = conn.execute(
         "INSERT INTO payment_transactions (raffle_id,buyer_id,platform,external_ref,proof_id,proof_sha256,"
@@ -154,7 +174,9 @@ def approve(tid: UUID, user=Depends(current_user), conn=Depends(get_conn)):
     enqueue(conn, tx["buyer_id"], tx["raffle_id"], "PAYMENT_APPROVED", tid,
             [info["title"], info["nums"], public_url(tx["raffle_id"])])
     write_audit(conn, user["id"], "APPROVE", "payment_transaction", tid, {})
-    return _tx_response(conn, tx)
+    out = _tx_response(conn, tx)
+    flush_after_commit(conn, limit=3, raffle_id=tx["raffle_id"])
+    return out
 
 
 @app.post("/api/v1/transactions/{tid}/reject")
@@ -187,13 +209,21 @@ def expire_holds(conn) -> int:
 
 
 # --- Interfaz web (PWA estática) y cabeceras de seguridad -------------------------------------
-import os
-from pathlib import Path
-
-from fastapi.staticfiles import StaticFiles
-
 CSP = ("default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; "
        "connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+
+
+@app.exception_handler(Exception)
+async def unhandled(request, exc):
+    """Error inesperado: respuesta JSON con una referencia que el usuario puede citar al reportarlo."""
+    from fastapi.responses import JSONResponse
+    rid = getattr(request.state, "rid", None) or observability.request_id(request)
+    observability.log.error('{"ev":"unhandled","rid":"%s","p":"%s"}', rid, request.url.path, exc_info=exc)
+    return JSONResponse({"detail": {"code": "INTERNAL_ERROR", "request_id": rid}}, status_code=500,
+                        headers={"X-Request-Id": rid})
+
+
+app.middleware("http")(observability.access_log)
 
 
 @app.middleware("http")

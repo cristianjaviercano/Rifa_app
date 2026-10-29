@@ -163,3 +163,11 @@ details.card > summary { min-height: 28px; display: flex; align-items: center; }
 .thumb { margin: 0; }
 .thumb img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; background: var(--line); }
 .thumb figcaption { font-size: .75rem; color: var(--muted); margin: 4px 0; }
+
+#random-box { margin: 8px 0; gap: 8px; flex-wrap: wrap; }
+#random-box input { width: 72px; }
+
+.legal { text-align: center; font-size: .75rem; color: var(--muted); padding: 4px 12px 8px; }
+.legal a { color: var(--muted); }
+.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; font-size: .85rem; }
+.check input { width: 22px; min-height: 22px; margin-top: 2px; flex: none; }

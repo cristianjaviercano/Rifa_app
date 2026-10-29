@@ -36,6 +36,7 @@ async function login(page, phone, name) {
   await page.click("form button[type=submit]");
   const dev = await page.locator("[data-testid=dev-code]").innerText();
   await page.fill("#code", dev.match(/\d{6}/)[0]);
+  if (await page.locator("#accept").count()) await page.check("#accept");
   await page.fill("#name", name);
   await page.click("button:has-text('Verificar')");
   await page.waitForSelector(".who:has-text('" + name + "')");
@@ -143,6 +144,12 @@ const anon = await newUser("anon");
 await anon.page.goto(BASE + `/#/r/${rid}`);
 await anon.page.waitForSelector("#t-3");
 check(await anon.page.locator("#t-3").isDisabled(), "boleta reservada no se puede elegir");
+await anon.page.fill("#rand-n", "3"); await anon.page.click("#rand-pick");
+check((await anon.page.locator(".sticky-cta").innerText()).includes("3 boletas"), "elegir al azar selecciona 3 boletas libres");
+await anon.page.goto(BASE + "/#/terminos"); await anon.page.waitForSelector("#terms-page");
+await anon.page.goto(BASE + "/#/privacidad"); await anon.page.waitForSelector("#privacy-page");
+check(true, "páginas de términos y privacidad disponibles");
+await anon.page.goto(BASE + `/#/r/${rid}`); await anon.page.waitForSelector("#t-3");
 // 3b. Invitado desde un enlace: pie "crea tu propia rifa" -> registro -> formulario de nueva rifa
 await anon.page.locator("#own-raffle").scrollIntoViewIfNeeded();
 await anon.page.screenshot({ path: `${OUT}/03b-pie-crea-tu-rifa.png` });

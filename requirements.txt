@@ -1,7 +1,8 @@
 fastapi
-psycopg[binary]
+psycopg[binary,pool]
 pyjwt
 uvicorn
 pytest
 httpx
 pillow
+sentry-sdk[fastapi]

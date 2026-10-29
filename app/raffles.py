@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import secrets
 from datetime import datetime
 from decimal import Decimal
@@ -12,7 +13,7 @@ from pydantic import BaseModel, Field
 from .audit import write_audit
 from . import codes
 from .db import get_conn
-from .notify import enqueue, public_url
+from .notify import enqueue, flush_after_commit, public_url
 from .security import current_user, optional_user
 
 router = APIRouter(prefix="/api/v1")
@@ -65,6 +66,8 @@ def _owned_raffle(conn, rid, user, lock=True):
 
 @router.post("/raffles", status_code=201)
 def create_raffle(b: RaffleIn, user=Depends(current_user), conn=Depends(get_conn)):
+    from . import ratelimit  # import tardío: ratelimit importa err de este módulo
+    ratelimit.hit(conn, "raffle_create", str(user["id"]), limit=int(os.environ.get("SGRS_MAX_RAFFLES_PER_DAY", "10")), window=86400)
     if b.total_numbers % b.numbers_per_ticket:
         raise err(422, "NUMBERS_NOT_DIVISIBLE")
     if b.sales_close_at >= b.draw_at:
@@ -210,4 +213,5 @@ def draw(rid: UUID, body: DrawIn, user=Depends(current_user), conn=Depends(get_c
     conn.execute("UPDATE raffles SET status='DRAWN' WHERE id=%s", (rid,))
     write_audit(conn, user["id"], "DRAW", "raffle", rid,
                 {"method": r["draw_method"], "winning_number": win, "source_url": body.source_url})
+    flush_after_commit(conn, limit=10, raffle_id=rid)
     return {"winning_number": win, "method": r["draw_method"], "prizes": result}

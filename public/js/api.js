@@ -21,6 +21,9 @@ const MESSAGES = {
   CODE_NOT_FOUND: "No encontramos ese código. Revísalo e inténtalo de nuevo.",
   IMAGE_NOT_FOUND: "No se pudo asociar una de las imágenes. Súbela de nuevo.",
   DB_NOT_CONFIGURED: "El servidor aún no tiene la base de datos conectada. Avisa al administrador del sistema.",
+  INTERNAL_ERROR: "Algo salió mal de nuestro lado. Inténtalo de nuevo; si persiste, cita la referencia al soporte.",
+  TERMS_REQUIRED: "Debes aceptar los términos y la política de privacidad para continuar.",
+  RATE_LIMITED: "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
   INVITE_INVALID: "La clave de acceso de la beta no es correcta.",
   OTP_SEND_FAILED: "No pudimos enviar el código por WhatsApp. Intenta de nuevo en unos minutos.",
   OTP_TOO_SOON: "Espera un minuto antes de pedir otro código.",
@@ -41,6 +44,7 @@ export class ApiError extends Error {
   constructor(status, code, extra) {
     super(MESSAGES[code] || (status === 0 ? "Sin conexión con el servidor." : `Error ${status}${code ? " (" + code + ")" : ""}`));
     this.status = status; this.code = code; this.extra = extra || {};
+    if (code === "INTERNAL_ERROR" && this.extra.request_id) this.message += ` Referencia: ${this.extra.request_id}`;
   }
 }
 

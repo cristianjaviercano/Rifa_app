@@ -1,6 +1,5 @@
 """Salas (portafolios): cada organizador tiene una sala con un código; nadie ve las rifas de otro
 a menos que reciba el código de la sala o el enlace/código de una rifa concreta."""
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends

@@ -2,9 +2,17 @@ import os, subprocess, tempfile, uuid
 import psycopg, pytest
 from psycopg.rows import dict_row
 
+def _migrate(c):
+    from app import migrate
+    with psycopg.connect(c.info.dsn, row_factory=dict_row) as m:
+        migrate.apply_all(m)
+
+
 PGBIN = "/usr/lib/postgresql/16/bin"
 PORT = 5433
 os.environ["SGRS_DSN"] = f"postgresql://postgres@127.0.0.1:{PORT}/sgrs"
+os.environ["SGRS_RATE_LIMITS"] = "off"   # las pruebas de límites lo activan explícitamente
+os.environ["SGRS_POOL"] = "0"
 
 
 @pytest.fixture(scope="session")
@@ -16,7 +24,7 @@ def pg():
         app.db.DSN = ext
         with psycopg.connect(ext, autocommit=True) as c:
             c.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public")
-            c.execute(open(os.path.join(os.path.dirname(__file__), "..", "schema.sql")).read())
+            _migrate(c)
         yield ext
         return
     d = tempfile.mkdtemp()
@@ -28,7 +36,7 @@ def pg():
     with psycopg.connect(admin + "/postgres", autocommit=True) as c:
         c.execute("CREATE DATABASE sgrs")
     with psycopg.connect(admin + "/sgrs", autocommit=True) as c:
-        c.execute(open(os.path.join(os.path.dirname(__file__), "..", "schema.sql")).read())
+        _migrate(c)
     yield admin + "/sgrs"
     run(f"{PGBIN}/pg_ctl -D {d}/data -m immediate stop")
 

@@ -30,6 +30,9 @@ Nota de método: en este entorno los clientes HTTP pasan por un proxy; las prime
 
 ## 3. Hallazgos y mejoras
 
+> **Estado de ejecución (ver `PLAN_MEJORAS.md`):** P0.2, P0.3, P0.4, P1.5, P1.6, P1.7, P1.9 y P2.12/13/14 implementados y probados. Quedan: P0.1 (variable de entorno, acción tuya), P1.8, P1.10, P2.11, P2.15 y P2.16.
+
+
 ### P0: antes de invitar testers
 1. **Definir `SGRS_BETA_KEY` y redesplegar** (producción bloqueada por diseño sin ella).
 2. **Migraciones de esquema.** `SGRS_AUTO_SCHEMA` solo crea tablas en una base *vacía*. Cualquier cambio posterior de esquema (ya hubo dos) no se aplicaría en Neon. Introducir una tabla `schema_migrations` y archivos SQL numerados aplicados al arrancar (≈ medio día). Hacerlo antes de tener datos reales.

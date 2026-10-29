@@ -1,6 +1,7 @@
 import { h } from "./dom.js";
 import { auth } from "./api.js";
 import { loadConfig, loadUser, logout, state } from "./state.js";
+import { privacidadView, terminosView } from "./legal.js";
 import { homeView } from "./views/home.js";
 import { loginView } from "./views/login.js";
 import { raffleView } from "./views/raffle.js";
@@ -12,6 +13,8 @@ import { adminListView, adminNewView, adminRaffleView } from "./views/admin.js";
 const ROUTES = [
   [/^\/$/, homeView],
   [/^\/login$/, loginView],
+  [/^\/terminos$/, terminosView],
+  [/^\/privacidad$/, privacidadView],
   [/^\/r\/([\w-]+)$/, raffleView],
   [/^\/s\/([\w-]+)$/, roomView],
   [/^\/pay\/([\w-]+)$/, payView],

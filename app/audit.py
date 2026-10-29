@@ -16,10 +16,15 @@ def write_audit(conn, actor_id, action, entity, entity_id, diff):
         (actor_id, action, entity, entity_id, json.dumps(diff, default=str), prev_hash, h))
 
 
-def verify_chain(conn) -> bool:
-    """Recalcula la cadena de hashes; False si algún registro fue alterado."""
-    prev = ""
-    for r in conn.execute("SELECT * FROM audit_log ORDER BY id").fetchall():
+def verify_chain(conn, last=None) -> bool:
+    """Recalcula la cadena de hashes; False si algún registro fue alterado.
+    last=N verifica solo los N más recientes (la ventana arranca confiando en el enlace de su primer registro)."""
+    if last:
+        rows = conn.execute("SELECT * FROM (SELECT * FROM audit_log ORDER BY id DESC LIMIT %s) t ORDER BY id", (last,)).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM audit_log ORDER BY id").fetchall()
+    prev = rows[0]["prev_hash"] if rows and last else ""
+    for r in rows:
         body = json.dumps([str(r["actor_id"]), r["action"], r["entity"], str(r["entity_id"]), r["diff"]],
                           sort_keys=True, default=str)
         if r["prev_hash"] != prev or r["hash"] != hashlib.sha256((prev + body).encode()).hexdigest():

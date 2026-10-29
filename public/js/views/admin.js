@@ -195,6 +195,9 @@ export async function adminRaffleView([rid], ctx) {
       } catch { /* aún sin arqueo */ }
     }
     if (r.status === "CLOSED") parts.push(drawPanel(r, rid, pending.length, paint));
+    if (r.status !== "DRAFT") {
+      try { parts.push(notificationsCard(rid, await api.get(`/raffles/${rid}/notifications`), paint)); } catch { /* sin permisos o sin avisos */ }
+    }
     if (r.status === "DRAWN") parts.push(h("p", null, h("a", { class: "btn block", href: `#/r/${rid}` }, "Ver resultado público")));
     body.replaceChildren(...parts);
   }
@@ -267,7 +270,23 @@ function drawPanel(r, rid, pendingCount, repaint) {
       if (!go) return;
       try {
         await api.post(`/raffles/${rid}/draw`, external ? { winning_number: Number(num.value), source_url: src.value.trim() } : {});
-        toast("Sorteo realizado"); repaint();
+        toast("Sorteo realizado");
+        api.post(`/raffles/${rid}/notifications/flush`).catch(() => {}).finally(repaint);
       } catch (x) { toast(x.message, "bad"); }
     } }, "Ejecutar sorteo"));
+}
+
+function notificationsCard(rid, n, repaint) {
+  const c = n.counts;
+  return h("div", { class: "card stack", id: "notifications-card" }, h("h2", null, "Avisos por WhatsApp"),
+    h("dl", { class: "kv" }, h("dt", null, "Enviados"), h("dd", { class: "num" }, String(c.SENT)),
+      h("dt", null, "Pendientes"), h("dd", { class: "num" }, String(c.QUEUED)),
+      h("dt", null, "Fallidos"), h("dd", { class: "num" }, String(c.FAILED)),
+      h("dt", null, "Omitidos (baja)"), h("dd", { class: "num" }, String(c.SKIPPED))),
+    !n.whatsapp && h("p", { class: "muted" }, "WhatsApp aún no está configurado: los avisos quedan en cola."),
+    n.whatsapp && c.QUEUED > 0 && h("button", { class: "btn ghost block", id: "flush-notifications", onclick: async (e) => {
+      e.target.disabled = true;
+      try { const r = await api.post(`/raffles/${rid}/notifications/flush`); toast(`Enviados ${r.processed}; quedan ${r.queued}`); } catch (x) { toast(x.message, "bad"); }
+      repaint();
+    } }, "Enviar pendientes"));
 }

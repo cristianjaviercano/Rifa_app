@@ -1,10 +1,13 @@
 """Lecturas para la interfaz: listados públicos, mis compras y cola de revisión."""
+import hashlib
+import json
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import JSONResponse
 
-from . import codes
+from . import codes, notify, whatsapp
 from .db import get_conn
 from .raffles import _owned_raffle, err
 from .security import current_user, optional_user
@@ -53,6 +56,26 @@ def detail(rid: UUID, conn=Depends(get_conn), user=Depends(optional_user)):
     return r
 
 
+@router.get("/raffles/{rid}/board")
+def board(rid: UUID, request: Request, conn=Depends(get_conn), user=Depends(optional_user)):
+    """Estado de todas las boletas en una sola cadena (1 carácter por boleta, en orden de serial):
+    D disponible, C congelada, P pagada, G ganadora. Los números de cada boleta se deducen:
+    la boleta s tiene los números (s-1)*npt … s*npt-1. 20 000 boletas ≈ 20 KB (frente a 2,2 MB)."""
+    r = conn.execute("SELECT numbers_per_ticket AS npt, total_numbers AS total, status FROM raffles WHERE id=%s", (rid,)).fetchone()
+    if not r or r["status"] == "DRAFT" and not user:
+        raise err(404, "RAFFLE_NOT_FOUND")
+    row = conn.execute(
+        "SELECT coalesce(string_agg(left(status::text, 1), '' ORDER BY serial), '') AS states,"
+        " coalesce(array_agg(serial ORDER BY serial) FILTER (WHERE owner_id = %s::uuid), '{}') AS mine"
+        " FROM tickets WHERE raffle_id=%s", (user["id"] if user else None, rid)).fetchone()
+    body = {"npt": r["npt"], "total": r["total"], "states": row["states"], "mine": row["mine"]}
+    etag = 'W/"' + hashlib.md5(json.dumps(body, sort_keys=True).encode(), usedforsecurity=False).hexdigest() + '"'  # nosec
+    headers = {"ETag": etag, "Cache-Control": "private, no-cache", "Vary": "Authorization"}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return JSONResponse(body, headers=headers)
+
+
 @router.get("/me/raffles")
 def my_raffles(user=Depends(current_user), conn=Depends(get_conn)):
     return conn.execute(f"SELECT {PUBLIC} r.visibility, r.share_code,{COUNTS} FROM raffles r WHERE r.owner_id=%s ORDER BY r.created_at DESC",
@@ -81,3 +104,21 @@ def raffle_transactions(rid: UUID, status: Optional[str] = None, user=Depends(cu
     _owned_raffle(conn, rid, user, lock=False)
     return conn.execute(TX_SELECT + " WHERE pt.raffle_id=%s AND (%s::text IS NULL OR pt.status::text=%s)"
                         " ORDER BY pt.created_at", (rid, status, status)).fetchall()
+
+
+@router.get("/raffles/{rid}/notifications")
+def notifications_summary(rid: UUID, user=Depends(current_user), conn=Depends(get_conn)):
+    _owned_raffle(conn, rid, user, lock=False)
+    rows = conn.execute("SELECT status, count(*) AS n FROM notifications WHERE raffle_id=%s GROUP BY status", (rid,)).fetchall()
+    out = {s: 0 for s in ("QUEUED", "SENT", "FAILED", "SKIPPED")}
+    out.update({r["status"]: r["n"] for r in rows})
+    return {"counts": out, "whatsapp": whatsapp.config() is not None}
+
+
+@router.post("/raffles/{rid}/notifications/flush")
+def notifications_flush(rid: UUID, user=Depends(current_user), conn=Depends(get_conn)):
+    """Envía en lote (hasta 25) los avisos pendientes de esta rifa."""
+    _owned_raffle(conn, rid, user, lock=False)
+    sent = notify.flush_after_commit(conn, limit=25, raffle_id=rid)
+    left = conn.execute("SELECT count(*) AS n FROM notifications WHERE raffle_id=%s AND status='QUEUED'", (rid,)).fetchone()["n"]
+    return {"processed": sent, "queued": left}
