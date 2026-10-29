@@ -144,3 +144,5 @@ details.card > summary { cursor: pointer; font-weight: 700; min-height: 32px; }
 .btn { white-space: nowrap; }
 details.card { padding: 10px var(--gap); }
 details.card > summary { min-height: 28px; display: flex; align-items: center; }
+
+.beta { background: var(--warn-bg); color: var(--warn); text-align: center; font-size: .8rem; font-weight: 700; padding: 6px 12px; }

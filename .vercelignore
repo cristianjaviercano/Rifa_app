@@ -1,0 +1,8 @@
+tests
+e2e
+docs
+scripts
+.github
+Dockerfile
+docker-compose.yml
+.env.example

@@ -1,6 +1,6 @@
 import { h } from "./dom.js";
 import { auth } from "./api.js";
-import { loadUser, logout, state } from "./state.js";
+import { loadConfig, loadUser, logout, state } from "./state.js";
 import { homeView } from "./views/home.js";
 import { loginView } from "./views/login.js";
 import { raffleView } from "./views/raffle.js";
@@ -70,6 +70,9 @@ window.addEventListener("hashchange", route);
 window.addEventListener("auth:expired", () => { state.user = null; state.next = location.hash.slice(1); ctx.go("/login"); });
 
 (async () => {
+  await loadConfig();
+  const banner = document.getElementById("beta");
+  if (state.config.beta) banner.hidden = false;
   if (auth.token) await loadUser();
   await route();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});

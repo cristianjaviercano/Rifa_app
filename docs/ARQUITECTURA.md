@@ -72,7 +72,7 @@ E2E con navegador real en viewport móvil (`e2e/e2e.mjs`, requiere `SGRS_DEV_ECH
 
 ## Interfaz web (PWA)
 
-JavaScript puro con módulos ES, sin build ni dependencias: la API la sirve desde `web/` (mismo origen, sin CORS). Instalable (manifest + íconos), service worker red-primero para el shell (la API nunca se cachea) y modo oscuro.
+JavaScript puro con módulos ES, sin build ni dependencias: la API la sirve desde `public/` (mismo origen, sin CORS). Instalable (manifest + íconos), service worker red-primero para el shell (la API nunca se cachea) y modo oscuro.
 
 | Ruta | Pantalla |
 |---|---|

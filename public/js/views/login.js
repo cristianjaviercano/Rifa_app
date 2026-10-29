@@ -15,18 +15,20 @@ export async function loginView(_, ctx) {
 
   const stepPhone = () => {
     const input = h("input", { id: "phone", type: "tel", inputmode: "tel", autocomplete: "tel", placeholder: "300 123 4567 o +57…", required: true });
+    const invite = state.config.beta ? h("input", { id: "invite", type: "password", autocomplete: "off", placeholder: "Clave que te entregó el equipo", required: true }) : null;
     const err = h("div", { class: "err", role: "alert" });
-    const btn = h("button", { class: "btn block", type: "submit" }, "Enviar código");
+    const btn = h("button", { class: "btn block", type: "submit" }, state.config.otp_on_screen ? "Obtener código" : "Enviar código");
     const form = h("form", { class: "card", novalidate: true, onsubmit: async (e) => {
       e.preventDefault(); err.textContent = ""; btn.disabled = true;
       phone = normalize(input.value);
       try {
-        const r = await api.post("/auth/otp/request", { phone });
+        const r = await api.post("/auth/otp/request", { phone, invite: invite ? invite.value.trim() : undefined });
         stepCode(r.dev_code);
       } catch (x) { err.textContent = x.message; btn.disabled = false; }
     } },
       h("div", { class: "field" }, h("label", { for: "phone" }, "Tu celular"), input,
-        h("div", { class: "hint" }, "Te enviaremos un código por mensaje para verificar tu número.")), err, btn);
+        h("div", { class: "hint" }, state.config.otp_on_screen ? "En esta fase de pruebas el código se muestra en pantalla." : "Te enviaremos un código por mensaje para verificar tu número.")),
+      invite && h("div", { class: "field" }, h("label", { for: "invite" }, "Clave de acceso a la beta"), invite), err, btn);
     root.replaceChildren(h("h1", null, "Entrar"), form);
     input.focus();
   };
@@ -47,8 +49,8 @@ export async function loginView(_, ctx) {
         ctx.go(next || "/");
       } catch (x) { err.textContent = x.message; btn.disabled = false; code.select(); }
     } },
-      h("p", null, "Enviamos un código a ", h("b", null, phone), "."),
-      devCode && h("p", { class: "chip warn", "data-testid": "dev-code" }, "Modo desarrollo · código: " + devCode),
+      h("p", null, devCode ? "Verificando el número " : "Enviamos un código a ", h("b", null, phone), "."),
+      devCode && h("p", { class: "chip warn", "data-testid": "dev-code" }, "Beta · tu código es " + devCode),
       h("div", { class: "field" }, h("label", { for: "code" }, "Código de 6 dígitos"), code),
       h("div", { class: "field" }, h("label", { for: "name" }, "Tu nombre"), name), err, btn,
       h("p", null, h("button", { class: "btn ghost small", type: "button", onclick: stepPhone }, "Cambiar número")));

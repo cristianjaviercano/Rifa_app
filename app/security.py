@@ -5,7 +5,17 @@ import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-SECRET = os.environ.get("SGRS_JWT_SECRET", "dev-only-change-me")
+def _secret() -> str:
+    s = os.environ.get("SGRS_JWT_SECRET")
+    if s:
+        return s
+    if os.environ.get("SGRS_ENV") == "production":  # nunca el valor de desarrollo en producción
+        from .db import secret_fallback
+        return secret_fallback()
+    return "dev-only-change-me"
+
+
+SECRET = _secret()
 TOKEN_TTL = int(os.environ.get("SGRS_TOKEN_TTL", "28800"))  # 8 h; refresh token pendiente
 _bearer = HTTPBearer()
 _bearer_opt = HTTPBearer(auto_error=False)

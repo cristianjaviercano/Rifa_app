@@ -32,7 +32,8 @@ async function newUser(name) {
 async function login(page, phone, name) {
   await page.goto(BASE + "/#/login");
   await page.fill("#phone", phone);
-  await page.click("button:has-text('Enviar código')");
+  if (await page.locator("#invite").count()) await page.fill("#invite", process.env.BETA_KEY || "");
+  await page.click("form button[type=submit]");
   const dev = await page.locator("[data-testid=dev-code]").innerText();
   await page.fill("#code", dev.match(/\d{6}/)[0]);
   await page.fill("#name", name);

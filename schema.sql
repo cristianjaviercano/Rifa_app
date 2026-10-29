@@ -1,5 +1,5 @@
 -- SGRS: esquema PostgreSQL 16
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- gen_random_uuid() es nativo desde PostgreSQL 13: no requiere extensiones
 
 CREATE TYPE user_role AS ENUM ('SUPERUSER','USER');
 CREATE TYPE raffle_status AS ENUM ('DRAFT','OPEN','CLOSED','DRAWN','CANCELLED');
@@ -83,6 +83,12 @@ CREATE TABLE proofs (
   storage_key text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+-- Almacenamiento de comprobantes en la propia base (SGRS_STORAGE=db): sin servicio extra, privado por diseño
+CREATE TABLE proof_blobs (
+  storage_key text PRIMARY KEY,
+  data bytea NOT NULL
+);
+
 CREATE TABLE payment_transactions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   raffle_id uuid NOT NULL REFERENCES raffles(id),

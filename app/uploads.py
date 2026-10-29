@@ -9,7 +9,7 @@ from .raffles import err
 from .security import current_user
 
 router = APIRouter(prefix="/api/v1")
-MAX_BYTES = 5 * 1024 * 1024
+MAX_BYTES = 4 * 1024 * 1024  # bajo el límite de 4,5 MB de petición de las funciones serverless
 MAGIC = [(b"\x89PNG\r\n\x1a\n", "image/png"), (b"\xff\xd8\xff", "image/jpeg"), (b"%PDF-", "application/pdf")]
 
 
@@ -35,7 +35,7 @@ async def upload_proof(request: Request, user=Depends(current_user), conn=Depend
         raise err(415, "UNSUPPORTED_TYPE", allowed=["png", "jpeg", "webp", "pdf"])
     sha = hashlib.sha256(data).hexdigest()
     key = f"{sha}"
-    storage.put(key, data)
+    storage.put(conn, key, data)
     pid = uuid4()
     conn.execute("INSERT INTO proofs (id, uploader_id, sha256, mime, size, storage_key) VALUES (%s,%s,%s,%s,%s,%s)",
                  (pid, user["id"], sha, mime, len(data), key))
@@ -52,6 +52,6 @@ def get_proof(pid: UUID, user=Depends(current_user), conn=Depends(get_conn)):
         " WHERE pt.proof_id=%s AND r.owner_id=%s", (pid, user["id"])).fetchone()
     if not allowed:
         raise err(403, "FORBIDDEN")
-    return Response(storage.get(p["storage_key"]), media_type=p["mime"], headers={
+    return Response(storage.get(conn, p["storage_key"]), media_type=p["mime"], headers={
         "X-Content-Type-Options": "nosniff", "Cache-Control": "private, no-store",
         "Content-Disposition": "inline"})

@@ -19,6 +19,8 @@ def send_otp(phone: str, code: str) -> None:
             log.error("OTP no enviado a %s: %s", phone[:-4] + "****", res.error)
             raise DeliveryError(res.error)
         return
+    if os.environ.get("SGRS_DEV_ECHO_OTP") == "1":  # beta: el código viaja en la respuesta, no por mensajería
+        return
     if os.environ.get("SGRS_ENV") == "production":
         raise DeliveryError("proveedor de mensajería no configurado")
     outbox.append((phone, f"Tu código SGRS es {code}. Vence en 5 minutos."))

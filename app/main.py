@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from .audit import write_audit
 from .db import get_conn
 from .notify import enqueue, public_url
+from .ops import router as ops_router
 from .auth import router as auth_router
 from .raffles import router as raffles_router
 from .uploads import router as uploads_router
@@ -21,6 +22,7 @@ app.include_router(auth_router)
 app.include_router(uploads_router)
 app.include_router(views_router)
 app.include_router(webhooks_router)
+app.include_router(ops_router)
 
 
 class ReservationIn(BaseModel):
@@ -200,6 +202,6 @@ async def security_headers(request, call_next):
     return resp
 
 
-WEB = Path(os.environ.get("SGRS_WEB_DIR", Path(__file__).resolve().parent.parent / "web"))
+WEB = Path(os.environ.get("SGRS_WEB_DIR", Path(__file__).resolve().parent.parent / "public"))
 if WEB.is_dir():
     app.mount("/", StaticFiles(directory=WEB, html=True), name="web")  # al final: la API tiene prioridad

@@ -3,7 +3,7 @@ import { api, ApiError } from "../api.js";
 import { state, selectionFor } from "../state.js";
 
 const PLATFORMS = [["NEQUI", "Nequi"], ["DAVIPLATA", "Daviplata"], ["BREVE", "Bre-B"], ["PAYPAL", "PayPal"], ["OTRO", "Otro"]];
-const MAX = 5 * 1024 * 1024;
+const MAX = 4 * 1024 * 1024;  // límite de la plataforma: 4,5 MB por petición
 
 /** Reduce fotos grandes del celular a ≤1600 px (JPEG) para que la subida sea rápida y quepa en 5 MB. */
 async function prepare(file) {

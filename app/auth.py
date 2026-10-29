@@ -3,11 +3,12 @@ import hmac
 import os
 import re
 import secrets
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from . import sms
+from . import sms, whatsapp
 from .db import get_conn
 from .raffles import err
 from .security import SECRET, TOKEN_TTL, issue_token
@@ -23,6 +24,7 @@ def _hash(phone: str, code: str) -> str:
 
 class OtpRequest(BaseModel):
     phone: str
+    invite: Optional[str] = None
 
 
 class OtpVerify(BaseModel):
@@ -31,8 +33,21 @@ class OtpVerify(BaseModel):
     name: str = Field(default="Usuario", min_length=1, max_length=80)
 
 
+def _echo() -> bool:
+    """El código se muestra en pantalla solo en beta y mientras no haya WhatsApp real configurado."""
+    return os.environ.get("SGRS_DEV_ECHO_OTP") == "1" and whatsapp.config() is None
+
+
+@router.get("/config")
+def public_config():
+    return {"beta": bool(os.environ.get("SGRS_BETA_KEY")), "otp_on_screen": _echo()}
+
+
 @router.post("/otp/request", status_code=202)
 def otp_request(b: OtpRequest, conn=Depends(get_conn)):
+    beta_key = os.environ.get("SGRS_BETA_KEY")
+    if beta_key and not (b.invite and hmac.compare_digest(b.invite.encode(), beta_key.encode())):
+        raise err(403, "INVITE_INVALID")
     if not PHONE.match(b.phone):
         raise err(422, "PHONE_INVALID")
     if conn.execute("SELECT 1 FROM otp_codes WHERE phone_e164=%s AND created_at > now() - make_interval(secs => %s)",
@@ -46,7 +61,7 @@ def otp_request(b: OtpRequest, conn=Depends(get_conn)):
     except sms.DeliveryError:
         raise err(502, "OTP_SEND_FAILED")  # la transacción se revierte: no queda un código inútil
     out = {"expires_in": TTL_SECONDS}  # no se revela si el usuario existe
-    if os.environ.get("SGRS_DEV_ECHO_OTP") == "1":  # SOLO desarrollo/E2E; nunca en producción
+    if _echo():  # beta/E2E sin WhatsApp; con WhatsApp configurado nunca se devuelve
         out["dev_code"] = code
     return out
 
