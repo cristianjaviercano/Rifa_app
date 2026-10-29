@@ -1,10 +1,25 @@
-"""Envío de SMS/WhatsApp. En desarrollo solo se registra en el log y en `outbox` (pruebas)."""
+"""Entrega del código OTP: WhatsApp si está configurado; en desarrollo solo se registra."""
 import logging
+import os
+
+from . import whatsapp
 
 log = logging.getLogger("sgrs.sms")
-outbox: list[tuple[str, str]] = []
+outbox: list[tuple[str, str]] = []  # solo desarrollo/pruebas
 
 
-def send(phone: str, text: str) -> None:
-    outbox.append((phone, text))
-    log.info("SMS a %s (proveedor no configurado)", phone[:-4] + "****")
+class DeliveryError(Exception):
+    pass
+
+
+def send_otp(phone: str, code: str) -> None:
+    if whatsapp.config():
+        res = whatsapp.send_otp_code(phone, code)
+        if not res.ok:
+            log.error("OTP no enviado a %s: %s", phone[:-4] + "****", res.error)
+            raise DeliveryError(res.error)
+        return
+    if os.environ.get("SGRS_ENV") == "production":
+        raise DeliveryError("proveedor de mensajería no configurado")
+    outbox.append((phone, f"Tu código SGRS es {code}. Vence en 5 minutos."))
+    log.warning("WhatsApp no configurado: código OTP solo disponible en desarrollo")

@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from .audit import write_audit
 from .db import get_conn
+from .notify import enqueue, public_url
 from .security import current_user, optional_user
 
 router = APIRouter(prefix="/api/v1")
@@ -185,14 +186,14 @@ def draw(rid: UUID, body: DrawIn, user=Depends(current_user), conn=Depends(get_c
         if t:
             conn.execute("UPDATE tickets SET status='GANADOR' WHERE id=%s", (t["id"],))
             conn.execute("INSERT INTO winners VALUES (%s,%s,%s)", (rid, p["id"], t["id"]))
-            conn.execute("INSERT INTO notifications (user_id,raffle_id,type,ref_id,payload)"
-                         " VALUES (%s,%s,'WINNER',%s,%s::jsonb) ON CONFLICT DO NOTHING",
-                         (t["owner_id"], rid, p["id"], json.dumps({"number": num})))
+            enqueue(conn, t["owner_id"], rid, "WINNER", p["id"],
+                    [r["title"], p["description"], str(num).zfill(len(str(total - 1)))])
         result.append(item)
-    conn.execute(
-        "INSERT INTO notifications (user_id,raffle_id,type,ref_id)"
-        " SELECT DISTINCT owner_id, %s, 'DRAW_FINISHED', %s FROM tickets WHERE raffle_id=%s"
-        " AND status='PAGADO' AND owner_id IS NOT NULL ON CONFLICT DO NOTHING", (rid, rid, rid))
+    for b in conn.execute("SELECT DISTINCT owner_id FROM tickets WHERE raffle_id=%s AND status IN ('PAGADO','GANADOR')"
+                          " AND owner_id IS NOT NULL AND owner_id NOT IN"
+                          " (SELECT user_id FROM notifications WHERE raffle_id=%s AND type='WINNER')", (rid, rid)).fetchall():
+        enqueue(conn, b["owner_id"], rid, "DRAW_FINISHED", rid,
+                [r["title"], str(win).zfill(len(str(total - 1))), public_url(rid)])
     conn.execute("UPDATE raffles SET status='DRAWN' WHERE id=%s", (rid,))
     write_audit(conn, user["id"], "DRAW", "raffle", rid,
                 {"method": r["draw_method"], "winning_number": win, "source_url": body.source_url})

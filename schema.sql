@@ -15,6 +15,7 @@ CREATE TABLE users (
   phone_verified_at timestamptz,
   name text NOT NULL,
   role user_role NOT NULL DEFAULT 'USER',
+  notify_optout boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -140,10 +141,14 @@ CREATE TABLE notifications (
   raffle_id uuid REFERENCES raffles(id),
   type text NOT NULL, ref_id uuid, channel text NOT NULL DEFAULT 'WHATSAPP',
   payload jsonb NOT NULL DEFAULT '{}',
-  status text NOT NULL DEFAULT 'QUEUED', attempts int NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'QUEUED',  -- QUEUED | SENT | FAILED | SKIPPED
+  attempts int NOT NULL DEFAULT 0,
   scheduled_at timestamptz NOT NULL DEFAULT now(),
+  provider_msg_id text, delivery_status text, last_error text, sent_at timestamptz,
   UNIQUE (user_id, type, ref_id)
 );
+CREATE INDEX notifications_queue_idx ON notifications (scheduled_at) WHERE status = 'QUEUED';
+CREATE INDEX notifications_msg_idx ON notifications (provider_msg_id);
 
 -- Bitácora append-only con hash encadenado
 CREATE TABLE audit_log (

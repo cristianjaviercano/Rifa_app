@@ -63,7 +63,7 @@ docker compose --env-file .env up --build
 ## Pruebas rápidas
 
 ```bash
-python -m pytest -q                       # 26 pruebas, incluida concurrencia
+python -m pytest -q                       # 40 pruebas, incluida concurrencia
 SGRS_DSN=postgresql://... python -m scripts.simulate --buyers 40 --seed 7 --method EXTERNAL_LOTTERY
 ```
 E2E con navegador real en viewport móvil (`e2e/e2e.mjs`, requiere `SGRS_DEV_ECHO_OTP=1`, solo pruebas): crea rifa, compra con comprobante, aprueba, cierra, sortea, verifica resultado público, instalabilidad y modo sin conexión.
@@ -85,6 +85,10 @@ JavaScript puro con módulos ES, sin build ni dependencias: la API la sirve desd
 
 Seguridad del cliente: todo texto entra por nodos DOM (nunca `innerHTML`), CSP `default-src 'self'` sin scripts ni estilos en línea, token en `localStorage` (vigencia 8 h, `SGRS_TOKEN_TTL`).
 
+## Notificaciones
+
+WhatsApp Business (Cloud API) con plantillas, cola transaccional, reintentos, recordatorio 24 h antes del sorteo, webhook de estados y baja voluntaria. Detalle y puesta en marcha en [`WHATSAPP.md`](WHATSAPP.md).
+
 ## Seguridad implementada
 
 - **Login OTP** (`/auth/otp/request|verify`): código de 6 dígitos (CSPRNG) guardado como HMAC, vigencia 5 min, un solo uso, máx. 5 intentos, reenvío cada 60 s. El teléfono queda verificado y se emite el JWT.
@@ -92,7 +96,7 @@ Seguridad del cliente: todo texto entra por nodos DOM (nunca `innerHTML`), CSP `
 
 ## Pendiente antes de producción
 
-1. Proveedor real de SMS/WhatsApp: hoy `app/sms.py` solo registra el mensaje; y envío de la cola `notifications` más recordatorio de `draw_at`.
+1. Probar la integración de WhatsApp contra la API real de Meta (credenciales y plantillas aprobadas; ver `docs/WHATSAPP.md`).
 2. Almacenamiento de comprobantes en objeto (S3/GCS, cifrado en reposo): hoy es disco local (`app/storage.py` es la única pieza a reemplazar).
 3. Migraciones (Alembic) en lugar de `schema.sql` inicial, TLS en el proxy inverso, backups de PostgreSQL y límite de tasa por IP.
 4. Refresh token (hoy el JWT dura 8 h) y cerrar sesión en servidor; notificaciones push/recordatorios.

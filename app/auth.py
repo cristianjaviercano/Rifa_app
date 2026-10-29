@@ -41,7 +41,10 @@ def otp_request(b: OtpRequest, conn=Depends(get_conn)):
     code = f"{secrets.randbelow(10**6):06d}"  # CSPRNG
     conn.execute("INSERT INTO otp_codes (phone_e164, code_hash, expires_at)"
                  " VALUES (%s,%s, now() + make_interval(secs => %s))", (b.phone, _hash(b.phone, code), TTL_SECONDS))
-    sms.send(b.phone, f"Tu código SGRS es {code}. Vence en 5 minutos.")
+    try:
+        sms.send_otp(b.phone, code)
+    except sms.DeliveryError:
+        raise err(502, "OTP_SEND_FAILED")  # la transacción se revierte: no queda un código inútil
     out = {"expires_in": TTL_SECONDS}  # no se revela si el usuario existe
     if os.environ.get("SGRS_DEV_ECHO_OTP") == "1":  # SOLO desarrollo/E2E; nunca en producción
         out["dev_code"] = code

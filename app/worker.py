@@ -1,4 +1,4 @@
-"""Worker: expira reservas vencidas y cierra rifas cuya fecha_cierre_ventas ya pasó."""
+"""Worker: expira reservas, cierra rifas vencidas, programa recordatorios y envía notificaciones."""
 import logging
 import time
 
@@ -7,6 +7,7 @@ from psycopg.rows import dict_row
 
 from .db import DSN
 from .main import expire_holds
+from .notify import enqueue_draw_reminders, process_queue
 from .raffles import auto_close
 
 logging.basicConfig(level=logging.INFO)
@@ -17,8 +18,10 @@ def tick():
     with psycopg.connect(DSN, row_factory=dict_row) as conn:
         e = expire_holds(conn)
         c = auto_close(conn)
-    if e or c:
-        log.info("expiradas=%s cerradas=%s", e, c)
+        r = enqueue_draw_reminders(conn)
+    n = process_queue(DSN)
+    if e or c or r or n:
+        log.info("expiradas=%s cerradas=%s recordatorios=%s enviadas=%s", e, c, r, n)
 
 
 if __name__ == "__main__":

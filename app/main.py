@@ -7,9 +7,11 @@ from pydantic import BaseModel, Field
 
 from .audit import write_audit
 from .db import get_conn
+from .notify import enqueue, public_url
 from .auth import router as auth_router
 from .raffles import router as raffles_router
 from .uploads import router as uploads_router
+from .webhooks import router as webhooks_router
 from .views import router as views_router
 from .security import current_user
 
@@ -18,6 +20,7 @@ app.include_router(raffles_router)
 app.include_router(auth_router)
 app.include_router(uploads_router)
 app.include_router(views_router)
+app.include_router(webhooks_router)
 
 
 class ReservationIn(BaseModel):
@@ -136,10 +139,12 @@ def approve(tid: UUID, user=Depends(current_user), conn=Depends(get_conn)):
         "UPDATE payment_transactions SET status='APPROVED', reviewed_by=%s, reviewed_at=now()"
         " WHERE id=%s RETURNING *", (user["id"], tid)).fetchone()
     # Outbox: se confirma o revierte junto con la aprobación.
-    conn.execute(
-        "INSERT INTO notifications (user_id, raffle_id, type, ref_id, payload)"
-        " VALUES (%s,%s,'PAYMENT_APPROVED',%s,'{}') ON CONFLICT DO NOTHING",
-        (tx["buyer_id"], tx["raffle_id"], tid))
+    info = conn.execute(
+        "SELECT r.title, (SELECT string_agg(lpad(n.number::text, length((r.total_numbers-1)::text), '0'), ', ' ORDER BY n.number)"
+        " FROM transaction_tickets tt JOIN ticket_numbers n ON n.ticket_id = tt.ticket_id WHERE tt.transaction_id = %s) AS nums"
+        " FROM raffles r WHERE r.id = %s", (tid, tx["raffle_id"])).fetchone()
+    enqueue(conn, tx["buyer_id"], tx["raffle_id"], "PAYMENT_APPROVED", tid,
+            [info["title"], info["nums"], public_url(tx["raffle_id"])])
     write_audit(conn, user["id"], "APPROVE", "payment_transaction", tid, {})
     return _tx_response(conn, tx)
 

@@ -17,6 +17,7 @@ const MESSAGES = {
   PROOF_NOT_FOUND: "No se encontró el comprobante. Súbelo de nuevo.",
   OTP_INVALID: "Código incorrecto o vencido.",
   OTP_LOCKED: "Demasiados intentos. Solicita un código nuevo en unos minutos.",
+  OTP_SEND_FAILED: "No pudimos enviar el código por WhatsApp. Intenta de nuevo en unos minutos.",
   OTP_TOO_SOON: "Espera un minuto antes de pedir otro código.",
   PHONE_INVALID: "Número inválido. Usa el formato +573001234567.",
   UNSUPPORTED_TYPE: "Formato no permitido. Usa PNG, JPG, WebP o PDF.",
