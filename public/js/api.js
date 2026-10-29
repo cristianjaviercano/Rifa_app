@@ -17,6 +17,8 @@ const MESSAGES = {
   PROOF_NOT_FOUND: "No se encontró el comprobante. Súbelo de nuevo.",
   OTP_INVALID: "Código incorrecto o vencido.",
   OTP_LOCKED: "Demasiados intentos. Solicita un código nuevo en unos minutos.",
+  ROOM_NOT_FOUND: "No encontramos esa sala. Revisa el código con quien te lo compartió.",
+  CODE_NOT_FOUND: "No encontramos ese código. Revísalo e inténtalo de nuevo.",
   INVITE_INVALID: "La clave de acceso de la beta no es correcta.",
   OTP_SEND_FAILED: "No pudimos enviar el código por WhatsApp. Intenta de nuevo en unos minutos.",
   OTP_TOO_SOON: "Espera un minuto antes de pedir otro código.",

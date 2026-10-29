@@ -2,7 +2,7 @@ import { h, money, fmtDate, chip, toast, modal, liveCountdown, padNum, skeleton 
 import { api } from "../api.js";
 import { state } from "../state.js";
 import { STATUS, raffleCard } from "./home.js";
-import { shareDialog, raffleLink, copyText } from "../share.js";
+import { shareDialog, shareRoomDialog, raffleLink, roomLink, copyText, prettyCode } from "../share.js";
 
 const guard = (ctx, path) => {
   if (state.user) return true;
@@ -11,10 +11,32 @@ const guard = (ctx, path) => {
 
 export async function adminListView(_, ctx) {
   if (!guard(ctx, "/admin")) return h("div");
-  const rows = await api.get("/me/raffles");
+  const room = await api.get("/me/room");
+  const name = h("input", { id: "room-name", value: room.has_custom_name ? room.room_name : "", placeholder: room.room_name, maxlength: 60, "aria-label": "Nombre de la sala" });
+  const roomCard = h("div", { class: "card stack", id: "room-card" },
+    h("div", { class: "row" }, h("h2", null, "Mi sala"), h("span", { class: "chip neutral num", id: "room-code" }, prettyCode(room.room_code))),
+    h("p", { class: "muted" }, "Tu portafolio de rifas. Solo entra quien tenga el enlace o el código de tu sala; tú decides qué rifas aparecen en ella."),
+    h("div", { class: "row" }, name, h("button", { class: "btn ghost small", type: "button", id: "save-room-name", onclick: async () => {
+      const v = name.value.trim(); if (!v) return toast("Escribe un nombre para tu sala", "bad");
+      try { await api.post("/me/room", { room_name: v }); room.room_name = v; toast("Nombre guardado"); } catch (x) { toast(x.message, "bad"); }
+    } }, "Guardar")),
+    h("div", { class: "row" }, h("span", { class: "num link-text" }, roomLink(room.room_code)), h("button", { class: "btn ghost small", type: "button", onclick: () => copyText(roomLink(room.room_code)) }, "Copiar")),
+    h("button", { class: "btn block", type: "button", id: "share-room-open", onclick: () => shareRoomDialog(room) }, "Compartir toda mi sala"));
+
+  const rows = room.raffles.map((r) => {
+    const inRoom = r.visibility === "PORTFOLIO";
+    const toggle = h("button", { class: "btn ghost small", type: "button", "data-vis": r.id, onclick: async (e) => {
+      e.target.disabled = true;
+      try { await api.post(`/raffles/${r.id}/visibility`, { visibility: inRoom ? "LINK" : "PORTFOLIO" }); window.dispatchEvent(new HashChangeEvent("hashchange")); }
+      catch (x) { toast(x.message, "bad"); e.target.disabled = false; }
+    } }, inRoom ? "Quitar de mi sala" : "Poner en mi sala");
+    return h("div", { class: "stack", "data-raffle": r.id }, raffleCard(r, `#/admin/r/${r.id}`),
+      h("div", { class: "row wrap vis-row" }, chip(inRoom ? "En mi sala" : "Solo con enlace o código", inRoom ? "ok" : "neutral"), toggle));
+  });
   return h("div", null,
     h("div", { class: "row" }, h("h1", null, "Mis rifas"), h("a", { class: "btn small", href: "#/admin/new", id: "new-raffle" }, "Nueva rifa")),
-    rows.length ? rows.map((r) => raffleCard(r, `#/admin/r/${r.id}`)) : h("div", { class: "empty" }, "Todavía no has creado rifas."));
+    roomCard,
+    rows.length ? rows : h("div", { class: "empty", id: "no-raffles" }, "Todavía no has creado rifas. Crea la primera y compártela."));
 }
 
 const toIso = (v) => new Date(v).toISOString();
@@ -53,7 +75,7 @@ export async function adminNewView(_, ctx) {
       numbers_per_ticket: Number(f.per.value), ticket_price: Number(f.price.value),
       sales_close_at: f.close.value && toIso(f.close.value), draw_at: f.draw.value && toIso(f.draw.value),
       draw_method: method.value, lottery_name: method.value === "EXTERNAL_LOTTERY" ? f.lottery.value.trim() : null,
-      hold_minutes: Number(f.hold.value), prizes, referrer_raffle_id: state.referrer || null,
+      hold_minutes: Number(f.hold.value), prizes, referrer_raffle_id: state.referrer || null, visibility: f.visibility.value,
       payment_accounts: Object.fromEntries(accounts.filter(([, i]) => i.value.trim()).map(([n, i]) => [n, i.value.trim()])),
     };
     if (!body.title || !body.terms_md || !prizes.length) { err.textContent = "Completa título, términos y al menos un premio."; return; }
@@ -81,6 +103,10 @@ export async function adminNewView(_, ctx) {
       field("draw", "Fecha del sorteo", inp("draw", { type: "datetime-local", value: soon(24 * 7) })),
       field("hold", "Minutos de reserva", inp("hold", { type: "number", inputmode: "numeric", value: 120, min: 1 }), "Tiempo para que verifiques el pago antes de liberar las boletas."),
       field("method", "Método de sorteo", method), lotteryField),
+    h("div", { class: "card" }, field("visibility", "¿Quién puede ver esta rifa?", (f.visibility = h("select", { id: "visibility" },
+      h("option", { value: "PORTFOLIO" }, "Aparece en mi sala (quien entre a mi sala la ve)"),
+      h("option", { value: "LINK" }, "Solo con su enlace o código (rifa independiente)"))),
+      "Siempre puedes cambiarlo después. Nadie ve tus rifas sin un enlace o código.")),
     h("div", { class: "card" }, h("h2", null, "Cuentas para recibir pagos"), accounts.map(([, i]) => h("div", { class: "field" }, i))),
     h("h2", null, "Premios"), prizeRows,
     h("button", { class: "btn ghost", type: "button", onclick: () => addPrize("SECO", "", 1) }, "Añadir premio"),
@@ -112,6 +138,12 @@ export async function adminRaffleView([rid], ctx) {
       h("h2", null, "Comparte tu rifa"),
       h("p", { class: "muted" }, "Publícala en WhatsApp, LinkedIn, Instagram y más. El enlace lleva a la portada con la selección de números."),
       h("div", { class: "row" }, h("span", { class: "num link-text" }, raffleLink(rid)), h("button", { class: "btn ghost small", type: "button", onclick: () => copyText(raffleLink(rid)) }, "Copiar")),
+      h("div", { class: "row" }, h("span", null, "Código: ", h("b", { class: "num", id: "raffle-code" }, prettyCode(r.share_code))), chip(r.visibility === "PORTFOLIO" ? "En mi sala" : "Solo con enlace o código", r.visibility === "PORTFOLIO" ? "ok" : "neutral")),
+      h("button", { class: "btn ghost block", type: "button", id: "toggle-vis", onclick: async (e) => {
+        e.target.disabled = true;
+        try { await api.post(`/raffles/${rid}/visibility`, { visibility: r.visibility === "PORTFOLIO" ? "LINK" : "PORTFOLIO" }); toast("Visibilidad actualizada"); paint(); }
+        catch (x) { toast(x.message, "bad"); e.target.disabled = false; }
+      } }, r.visibility === "PORTFOLIO" ? "Sacar de mi sala (solo con enlace)" : "Poner en mi sala"),
       h("button", { class: "btn block", type: "button", id: "share-open", onclick: () => shareDialog(r, rid) }, "Elegir dónde compartir")));
 
     if (r.status === "DRAFT") parts.push(h("button", { class: "btn block", id: "publish", onclick: async () => {

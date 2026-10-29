@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from .audit import write_audit
+from . import codes
 from .db import get_conn
 from .notify import enqueue, public_url
 from .security import current_user, optional_user
@@ -41,6 +42,7 @@ class RaffleIn(BaseModel):
     hold_minutes: int = Field(default=120, gt=0)
     payment_accounts: dict[str, str] = {}
     referrer_raffle_id: Optional[UUID] = None
+    visibility: str = Field(default="PORTFOLIO", pattern="^(PORTFOLIO|LINK)$")
     prizes: list[PrizeIn] = Field(min_length=1)
 
 
@@ -68,15 +70,17 @@ def create_raffle(b: RaffleIn, user=Depends(current_user), conn=Depends(get_conn
         raise err(422, "LOTTERY_NAME_REQUIRED")
     r = conn.execute(
         "INSERT INTO raffles (owner_id,title,terms_md,total_numbers,numbers_per_ticket,ticket_price,"
-        " sales_close_at,draw_at,draw_method,lottery_name,hold_minutes,payment_accounts,referrer_raffle_id) VALUES"
-        " (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,(SELECT id FROM raffles WHERE id=%s)) RETURNING id",
+        " sales_close_at,draw_at,draw_method,lottery_name,hold_minutes,payment_accounts,referrer_raffle_id,visibility) VALUES"
+        " (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,(SELECT id FROM raffles WHERE id=%s),%s) RETURNING id",
         (user["id"], b.title, b.terms_md, b.total_numbers, b.numbers_per_ticket, b.ticket_price,
          b.sales_close_at, b.draw_at, b.draw_method, b.lottery_name, b.hold_minutes,
-         json.dumps(b.payment_accounts), b.referrer_raffle_id)).fetchone()
+         json.dumps(b.payment_accounts), b.referrer_raffle_id, b.visibility)).fetchone()
     for p in b.prizes:
         conn.execute("INSERT INTO prizes (raffle_id,kind,rank,description,rule) VALUES (%s,%s,%s,%s,%s::jsonb)",
                      (r["id"], p.kind, p.rank, p.description, json.dumps({"offset": p.offset})))
-    write_audit(conn, user["id"], "CREATE", "raffle", r["id"], {"title": b.title})
+    codes.share_code(conn, r["id"])
+    codes.room_code(conn, user["id"])
+    write_audit(conn, user["id"], "CREATE", "raffle", r["id"], {"title": b.title, "visibility": b.visibility})
     return {"id": r["id"], "status": "DRAFT"}
 
 

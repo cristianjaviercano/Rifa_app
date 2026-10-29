@@ -80,7 +80,7 @@ def test_lazy_maintenance_expires_without_worker(db, monkeypatch, raffle, mkuser
     db.execute("UPDATE payment_transactions SET expires_at = now() - interval '1 minute' WHERE id=%s", (tid,))
     monkeypatch.setenv("SGRS_LAZY_MAINTENANCE", "1")
     monkeypatch.setattr(appdb, "_last_maintenance", 0.0)
-    assert client.get("/api/v1/raffles").status_code == 200  # cualquier petición dispara el mantenimiento
+    assert client.get(f"/api/v1/raffles/{r['id']}").status_code == 200  # cualquier petición dispara el mantenimiento
     assert db.execute("SELECT status FROM payment_transactions WHERE id=%s", (tid,)).fetchone()["status"] == "EXPIRED"
     assert db.execute("SELECT status FROM tickets WHERE id=%s", (r["tickets"][0],)).fetchone()["status"] == "DISPONIBLE"
 

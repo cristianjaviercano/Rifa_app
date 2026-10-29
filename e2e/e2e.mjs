@@ -25,7 +25,7 @@ const problems = [];
 async function newUser(name) {
   const ctx = await browser.newContext({ ...mobile, locale: "es-CO", timezoneId: "America/Bogota" });
   const page = await ctx.newPage();
-  page.on("console", (m) => { if (m.type() === "error" && !/ERR_INTERNET_DISCONNECTED/.test(m.text())) problems.push(`${name} console: ${m.text()}`); });
+  page.on("console", (m) => { if (m.type() === "error" && !/ERR_INTERNET_DISCONNECTED/.test(m.text()) && !(name === "guest" && /status of 404/.test(m.text()))) problems.push(`${name} console: ${m.text()}`); });
   page.on("pageerror", (e) => problems.push(`${name} pageerror: ${e.message}`));
   return { ctx, page };
 }
@@ -73,6 +73,45 @@ const og = await (await A.request.get(link)).text();
 check(og.includes('property="og:title" content="Rifa E2E') && og.includes("/og.png"), "la página del enlace trae etiquetas Open Graph");
 const png = await A.request.get(link + "/og.png");
 check(png.headers()["content-type"] === "image/png", "tarjeta de imagen para redes");
+
+// 1c. Salas privadas: una segunda rifa «solo con enlace» y un visitante totalmente nuevo
+await A.goto(BASE + "/#/admin/new");
+await A.fill("#title", "Rifa privada"); await A.fill("#terms", "t"); await A.fill("#total", "10");
+await A.fill("input[aria-label='Descripción']", "Premio privado");
+await A.selectOption("#visibility", "LINK");
+await A.click("#save-publish");
+await A.waitForURL(/#\/admin\/r\//);
+const rid2 = A.url().split("/").pop();
+const roomCode = sql(`select room_code from users where name='Admin'`);
+const shareCode1 = sql(`select share_code from raffles where id='${rid}'`);
+check(/^S[A-Z2-9]{7}$/.test(roomCode) && /^R[A-Z2-9]{7}$/.test(shareCode1), "sala y rifa tienen código corto");
+await A.goto(BASE + "/#/admin");
+await A.waitForSelector("#room-card");
+check((await A.locator("#room-code").innerText()).replace("-", "") === roomCode, "el administrador ve el código de su sala");
+check((await A.locator("[data-raffle]").count()) === 2, "el portafolio lista sus dos rifas");
+const guest = await newUser("guest");
+const G = guest.page;
+await G.goto(BASE + "/");
+await G.waitForSelector("#join-btn");
+check(await G.locator("#create-raffle").isVisible() && (await G.locator(".price").count()) === 0, "usuario nuevo: elige entre entrar a una rifa o crear la suya, sin ver rifas ajenas");
+await G.screenshot({ path: `${OUT}/00-bienvenida.png` });
+await G.fill("#code-input", "S-ZZZZZZZ"); await G.click("#join-btn");
+await G.waitForSelector(".err:has-text('No encontramos')");
+check(true, "un código inexistente muestra un error claro");
+await G.fill("#code-input", roomCode.slice(0, 1) + "-" + roomCode.slice(1).toLowerCase()); await G.click("#join-btn");
+await G.waitForSelector("#share-room");
+const roomText = await G.locator("main").innerText();
+check(roomText.includes("Rifa E2E") && !roomText.includes("Rifa privada"), "la sala muestra solo las rifas del portafolio");
+await G.screenshot({ path: `${OUT}/00b-sala.png` });
+await G.goto(BASE + "/#/");
+await G.fill("#code-input", `${BASE}/r/${rid2}`); await G.click("#join-btn");
+await G.waitForSelector("h1:has-text('Rifa privada')");
+check((await G.locator("#see-room").count()) === 0, "una rifa independiente no revela la sala");
+await G.goto(BASE + "/#/");
+await G.fill("#code-input", shareCode1); await G.click("#join-btn");
+await G.waitForSelector("h1:has-text('Rifa E2E')");
+check((await G.locator("#see-room").count()) === 1, "la rifa de la sala enlaza a la sala");
+await guest.ctx.close();
 
 // 2. Comprador: inicia sesión, elige 2 boletas, paga con referencia + comprobante
 await login(B, "+573002220002", "Beto");

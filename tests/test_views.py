@@ -16,10 +16,9 @@ def mk_tx(r, b, n=1, ref=None):
 
 def test_public_list_and_detail_hide_private_data(db, raffle, mkuser):
     r, b = raffle(), mkuser()
-    rows = client.get("/api/v1/raffles").json()
-    mine = next(x for x in rows if x["id"] == str(r["id"]))
-    assert mine["tickets_total"] == 10 and mine["tickets_sold"] == 0
+    assert client.get("/api/v1/raffles").status_code == 404  # ya no existe un listado público
     d = client.get(f"/api/v1/raffles/{r['id']}")
+    assert d.json()["tickets_total"] == 10 and d.json()["tickets_sold"] == 0
     assert d.status_code == 200 and "owner_id" not in d.json() and d.json()["is_owner"] is False
     own = client.get(f"/api/v1/raffles/{r['id']}", headers=H({"id": r["owner"], "role": "USER"})).json()
     assert own["is_owner"] is True
@@ -62,4 +61,4 @@ def test_static_app_and_security_headers():
     assert "default-src 'self'" in r.headers["content-security-policy"]
     assert r.headers["cache-control"] == "no-cache"
     assert client.get("/sw.js").status_code == 200
-    assert client.get("/api/v1/raffles").status_code == 200  # la API no queda tapada por el mount estático
+    assert client.get("/api/v1/auth/config").status_code == 200  # la API no queda tapada por el mount estático

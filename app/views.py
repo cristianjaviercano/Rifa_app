@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
+from . import codes
 from .db import get_conn
 from .raffles import _owned_raffle, err
 from .security import current_user, optional_user
@@ -22,19 +23,20 @@ def me(user=Depends(current_user), conn=Depends(get_conn)):
     return conn.execute("SELECT id, name, role, phone_e164 AS phone FROM users WHERE id=%s", (user["id"],)).fetchone()
 
 
-@router.get("/raffles")
-def list_open(conn=Depends(get_conn)):
-    return conn.execute(f"SELECT {PUBLIC}{COUNTS} FROM raffles r WHERE r.status IN ('OPEN','CLOSED','DRAWN')"
-                        " ORDER BY (r.status='OPEN') DESC, r.sales_close_at LIMIT 100").fetchall()
-
-
 @router.get("/raffles/{rid}")
 def detail(rid: UUID, conn=Depends(get_conn), user=Depends(optional_user)):
-    r = conn.execute(f"SELECT {PUBLIC} r.terms_md, r.hold_minutes, r.payment_accounts, r.lottery_name,{COUNTS}"
-                     " FROM raffles r WHERE r.id=%s", (rid,)).fetchone()
+    r = conn.execute(f"SELECT {PUBLIC} r.terms_md, r.hold_minutes, r.payment_accounts, r.lottery_name, r.visibility, r.share_code,"
+                     f" u.name AS owner_name, u.room_code, u.room_name,{COUNTS}"
+                     " FROM raffles r JOIN users u ON u.id=r.owner_id WHERE r.id=%s", (rid,)).fetchone()
     if not r or (r["status"] == "DRAFT" and not (user and user["id"] == r["owner_id"])):
         raise err(404, "RAFFLE_NOT_FOUND")
     r["is_owner"] = bool(user and (user["id"] == r["owner_id"] or user["role"] == "SUPERUSER"))
+    if r["visibility"] == "PORTFOLIO":
+        if user and user["id"] != r["owner_id"]:  # recordar la sala para que el comprador pueda volver
+            conn.execute("INSERT INTO memberships (user_id, owner_id) VALUES (%s,%s) ON CONFLICT DO NOTHING", (user["id"], r["owner_id"]))
+        r["room_name"] = r["room_name"] or f"Sala de {r['owner_name']}"
+    else:  # rifa independiente: no se revela la sala
+        r["room_code"] = None; r["room_name"] = None
     r["prizes"] = conn.execute("SELECT id, kind, rank, description FROM prizes WHERE raffle_id=%s ORDER BY rank", (rid,)).fetchall()
     if r["status"] == "DRAWN":
         r["draw"] = conn.execute("SELECT method, winning_number, source_url, executed_at FROM draws WHERE raffle_id=%s", (rid,)).fetchone()
@@ -42,6 +44,8 @@ def detail(rid: UUID, conn=Depends(get_conn), user=Depends(optional_user)):
             "SELECT p.description, p.kind, (SELECT array_agg(n.number ORDER BY n.number) FROM ticket_numbers n"
             " WHERE n.ticket_id=w.ticket_id) AS numbers FROM winners w JOIN prizes p ON p.id=w.prize_id"
             " WHERE w.raffle_id=%s ORDER BY p.rank", (rid,)).fetchall()
+    if r["is_owner"] and not r["share_code"] and r["status"] != "DRAFT":
+        r["share_code"] = codes.share_code(conn, rid)
     if not r["is_owner"]:
         r.pop("owner_id")
     return r
@@ -49,7 +53,7 @@ def detail(rid: UUID, conn=Depends(get_conn), user=Depends(optional_user)):
 
 @router.get("/me/raffles")
 def my_raffles(user=Depends(current_user), conn=Depends(get_conn)):
-    return conn.execute(f"SELECT {PUBLIC}{COUNTS} FROM raffles r WHERE r.owner_id=%s ORDER BY r.created_at DESC",
+    return conn.execute(f"SELECT {PUBLIC} r.visibility, r.share_code,{COUNTS} FROM raffles r WHERE r.owner_id=%s ORDER BY r.created_at DESC",
                         (user["id"],)).fetchall()
 
 

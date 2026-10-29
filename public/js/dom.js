@@ -55,6 +55,7 @@ export function modal(content, { actions } = {}) {
     dlg.append(h("div", { class: "in stack" }, content, h("div", { class: "row" }, (actions || []).map((a) =>
       h("button", { class: "btn " + (a.cls || ""), type: "button", onclick: () => close(a.value) }, a.label)))));
     dlg.addEventListener("cancel", () => close(undefined));
+    dlg.addEventListener("switch", () => close("switch"));
     document.body.append(dlg);
     dlg.showModal();
   });

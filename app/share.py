@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, Response
 from PIL import Image, ImageDraw, ImageFont
 
+from .codes import normalize
 from .db import get_conn
 
 router = APIRouter()
@@ -89,10 +90,7 @@ def _wrap(draw, text, font, width, max_lines):
     return lines
 
 
-@router.get("/r/{rid}/og.png")
-def share_image(rid: UUID, conn=Depends(get_conn)):
-    r = _raffle(conn, rid)
-    title, _ = describe(r)
+def _card(title, big=None, big_suffix=None, small=None, pct=None) -> Response:
     img = Image.new("RGB", (1200, 630), "#0B6E4F")
     d = ImageDraw.Draw(img)
     d.rounded_rectangle((60, 60, 1140, 570), radius=36, fill="#FFFFFF")
@@ -101,14 +99,68 @@ def share_image(rid: UUID, conn=Depends(get_conn)):
     y = 175
     for line in _wrap(d, title, _font(60, True), 980, 2):
         d.text((110, y), line, font=_font(60, True), fill="#0E1F19"); y += 78
-    if r:
-        d.text((110, 400), _money(r["ticket_price"]), font=_font(66, True), fill="#0B6E4F")
-        d.text((110 + d.textlength(_money(r["ticket_price"]), font=_font(66, True)) + 20, 428), "por número", font=_font(34), fill="#587066")
-        pct = (r["sold"] / r["total"]) if r["total"] else 0
+    if big:
+        d.text((110, 400), big, font=_font(66, True), fill="#0B6E4F")
+        if big_suffix:
+            d.text((110 + d.textlength(big, font=_font(66, True)) + 20, 428), big_suffix, font=_font(34), fill="#587066")
+    if pct is not None:
         d.rounded_rectangle((110, 478, 1090, 500), radius=11, fill="#DAE3DE")
         if pct > 0:
             d.rounded_rectangle((110, 478, 110 + int(980 * pct), 500), radius=11, fill="#0B6E4F")
-        d.text((110, 512), f"{round(pct * 100)}% vendido · elige tu número", font=_font(26), fill="#587066")
+    if small:
+        d.text((110, 512), small, font=_font(26), fill="#587066")
     buf = io.BytesIO()
     img.save(buf, "PNG", optimize=True)
     return Response(buf.getvalue(), media_type="image/png", headers={"Cache-Control": "public, max-age=300"})
+
+
+@router.get("/r/{rid}/og.png")
+def share_image(rid: UUID, conn=Depends(get_conn)):
+    r = _raffle(conn, rid)
+    title, _ = describe(r)
+    if not r:
+        return _card(title)
+    pct = (r["sold"] / r["total"]) if r["total"] else 0
+    return _card(title, _money(r["ticket_price"]), "por número", f"{round(pct * 100)}% vendido · elige tu número", pct)
+
+
+def _room(conn, code):
+    return conn.execute(
+        "SELECT coalesce(u.room_name, 'Sala de ' || u.name) AS title, u.room_code,"
+        " (SELECT count(*) FROM raffles r WHERE r.owner_id=u.id AND r.visibility='PORTFOLIO' AND r.status='OPEN') AS open_raffles"
+        " FROM users u WHERE u.room_code=%s", (normalize(code),)).fetchone()
+
+
+def _room_text(room):
+    n = room["open_raffles"] if room else 0
+    return (room["title"] if room else GENERIC[0],
+            (f"{n} rifa{'s' if n != 1 else ''} activa{'s' if n != 1 else ''}. Entra a la sala y elige tu número." if room else GENERIC[1]))
+
+
+@router.get("/s/{code}", response_class=HTMLResponse)
+def room_share_page(code: str, request: Request, conn=Depends(get_conn)):
+    room = _room(conn, code)
+    title, desc = _room_text(room)
+    base = base_url(request)
+    url = f"{base}/s/{room['room_code']}" if room else f"{base}/s/{escape(code)}"
+    dest = f"/#/s/{room['room_code']}" if room else "/#/"
+    t, d = escape(f"{title} · Rifa App" if room else title, quote=True), escape(desc, quote=True)
+    img = escape(url) + "/og.png"
+    html = f"""<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{t}</title><meta name="description" content="{d}"><link rel="canonical" href="{escape(url)}">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Rifa App"><meta property="og:locale" content="es_CO">
+<meta property="og:title" content="{t}"><meta property="og:description" content="{d}"><meta property="og:url" content="{escape(url)}">
+<meta property="og:image" content="{img}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="{t}"><meta name="twitter:description" content="{d}"><meta name="twitter:image" content="{img}">
+<meta http-equiv="refresh" content="0;url={dest}"></head><body><p><a href="{dest}">Entrar a la sala</a></p></body></html>"""
+    return HTMLResponse(html, headers={"Cache-Control": "public, max-age=60"})
+
+
+@router.get("/s/{code}/og.png")
+def room_share_image(code: str, conn=Depends(get_conn)):
+    room = _room(conn, code)
+    title, _ = _room_text(room)
+    if not room:
+        return _card(title)
+    n = room["open_raffles"]
+    return _card(title, f"{n} rifa{'s' if n != 1 else ''}", "activa" + ("s" if n != 1 else ""), "Entra a la sala y elige tu número")

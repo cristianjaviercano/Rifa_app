@@ -4,6 +4,7 @@ import { loadConfig, loadUser, logout, state } from "./state.js";
 import { homeView } from "./views/home.js";
 import { loginView } from "./views/login.js";
 import { raffleView } from "./views/raffle.js";
+import { roomView } from "./views/room.js";
 import { payView } from "./views/pay.js";
 import { mineView } from "./views/mine.js";
 import { adminListView, adminNewView, adminRaffleView } from "./views/admin.js";
@@ -12,6 +13,7 @@ const ROUTES = [
   [/^\/$/, homeView],
   [/^\/login$/, loginView],
   [/^\/r\/([\w-]+)$/, raffleView],
+  [/^\/s\/([\w-]+)$/, roomView],
   [/^\/pay\/([\w-]+)$/, payView],
   [/^\/mine$/, mineView],
   [/^\/admin$/, adminListView],
@@ -32,7 +34,7 @@ function renderChrome(path) {
   const tab = (href, ico, label, match) => h("a", { href: "#" + href, "aria-current": match ? "page" : null },
     h("span", { class: "ico", "aria-hidden": "true" }, ico), label);
   document.getElementById("tabs").replaceChildren(
-    tab("/", "🎟", "Rifas", path === "/" || path.startsWith("/r/") || path.startsWith("/pay/")),
+    tab("/", "🎟", "Rifas", path === "/" || path.startsWith("/r/") || path.startsWith("/s/") || path.startsWith("/pay/")),
     tab("/mine", "🧾", "Mis compras", path === "/mine"),
     tab("/admin", "⚙", "Administrar", path.startsWith("/admin")),
     state.user

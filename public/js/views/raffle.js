@@ -2,7 +2,7 @@ import { h, money, fmtDate, liveCountdown, chip, toast, padNum, skeleton } from 
 import { api } from "../api.js";
 import { state, selectionFor } from "../state.js";
 import { STATUS } from "./home.js";
-import { shareDialog } from "../share.js";
+import { shareDialog, ownRaffleCta } from "../share.js";
 
 const label = (t, total) => {
   const n = t.numbers.map((x) => padNum(x, total));
@@ -92,7 +92,8 @@ export async function raffleView([rid], ctx) {
   const view = h("div", null,
     h("div", { class: "row" }, h("h1", null, r.title), chip(statusLabel, statusKind)),
     h("div", { class: "row wrap" },
-      r.is_owner ? h("a", { href: `#/admin/r/${rid}` }, "Administrar esta rifa →") : h("span"),
+      r.is_owner ? h("a", { href: `#/admin/r/${rid}` }, "Administrar esta rifa →")
+        : r.room_code ? h("a", { href: `#/s/${r.room_code}`, id: "see-room" }, `Ver más rifas de ${r.owner_name} →`) : h("span"),
       h("button", { class: "btn ghost small", type: "button", id: "share-btn", onclick: () => shareDialog(r, rid) }, "Compartir")),
     h("div", { class: "card stack" },
       h("div", { class: "row" }, h("span", { class: "price" }, money(r.ticket_price, r.currency)),
@@ -111,14 +112,7 @@ export async function raffleView([rid], ctx) {
       h("span", null, h("i", { class: "cell held" }), "En revisión"), h("span", null, h("i", { class: "cell paid" }), "Pagada"),
       h("span", null, h("i", { class: "cell mine" }), "Tuya")),
     ...skeleton(0), grid,
-    h("section", { class: "own-raffle", id: "own-raffle", "aria-label": "Crea tu propia rifa" },
-      h("h2", null, "¿Quieres hacer tu propia rifa?"),
-      h("p", { class: "muted" }, "Crea y comparte la tuya en minutos: tú defines los números, el precio y el sorteo, y la plataforma lleva el control de pagos y resultados."),
-      h("button", { class: "btn ghost block", type: "button", id: "own-raffle-cta", onclick: () => {
-        state.referrer = rid;  // la nueva rifa queda ligada a esta, para medir el alcance de los enlaces
-        if (!state.user) { state.next = "/admin/new"; return ctx.go("/login"); }
-        ctx.go("/admin/new");
-      } }, "Crea tu propia rifa")),
+    ownRaffleCta(ctx, rid),
     cta);
 
   await refresh();

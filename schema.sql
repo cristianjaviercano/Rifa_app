@@ -16,6 +16,8 @@ CREATE TABLE users (
   name text NOT NULL,
   role user_role NOT NULL DEFAULT 'USER',
   notify_optout boolean NOT NULL DEFAULT false,
+  room_code text UNIQUE,   -- código de la sala (portafolio) del organizador: S + 7 caracteres
+  room_name text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -34,6 +36,8 @@ CREATE TABLE raffles (
   lottery_name text,
   hold_minutes int NOT NULL DEFAULT 120 CHECK (hold_minutes > 0),
   payment_accounts jsonb NOT NULL DEFAULT '{}',
+  share_code text UNIQUE,  -- código corto para entrar a esta rifa: R + 7 caracteres
+  visibility text NOT NULL DEFAULT 'PORTFOLIO' CHECK (visibility IN ('PORTFOLIO','LINK')),
   referrer_raffle_id uuid REFERENCES raffles(id),  -- rifa desde cuyo enlace nació esta (crecimiento viral)
   status raffle_status NOT NULL DEFAULT 'DRAFT',
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -181,3 +185,11 @@ CREATE TABLE otp_codes (
 );
 CREATE INDEX otp_phone_idx ON otp_codes (phone_e164, created_at DESC);
 
+
+-- Salas a las que un usuario ha entrado (para volver a ellas); no concede acceso, solo recuerda
+CREATE TABLE memberships (
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  owner_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, owner_id)
+);

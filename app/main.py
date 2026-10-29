@@ -14,6 +14,7 @@ from .raffles import router as raffles_router
 from .uploads import router as uploads_router
 from .webhooks import router as webhooks_router
 from .views import router as views_router
+from .rooms import router as rooms_router
 from .security import current_user
 from .share import router as share_router
 
@@ -22,6 +23,7 @@ app.include_router(raffles_router)
 app.include_router(auth_router)
 app.include_router(uploads_router)
 app.include_router(views_router)
+app.include_router(rooms_router)
 app.include_router(webhooks_router)
 app.include_router(ops_router)
 app.include_router(share_router)

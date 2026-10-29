@@ -85,6 +85,24 @@ JavaScript puro con módulos ES, sin build ni dependencias: la API la sirve desd
 
 Seguridad del cliente: todo texto entra por nodos DOM (nunca `innerHTML`), CSP `default-src 'self'` sin scripts ni estilos en línea, token en `localStorage` (vigencia 8 h, `SGRS_TOKEN_TTL`).
 
+## Salas (portafolios) y privacidad
+
+Modelo de acceso: **nada es público por defecto**. No existe un listado general de rifas.
+
+| Concepto | Detalle |
+|---|---|
+| **Sala** | Cada organizador tiene una sala con código `S-XXXXXXX` y nombre editable. Contiene las rifas marcadas «en mi sala». |
+| **Rifa** | Tiene su propio código `R-XXXXXXX` y su enlace `/r/{uuid}`. Visibilidad: `PORTFOLIO` (aparece en la sala) o `LINK` (independiente: solo con enlace o código; no revela la sala). |
+| **Acceso** | Quien recibe el enlace o código de una **sala** ve todas sus rifas en `PORTFOLIO`; quien recibe el de una **rifa** ve solo esa. Los borradores nunca se ven. |
+| **Entrada** | La portada ofrece dos caminos: «Entrar a una rifa o sala» (un campo que acepta enlaces pegados o códigos) o «Crear mi propia rifa». |
+| **Memoria** | Al entrar a una sala (o a una rifa de portafolio) con sesión iniciada, queda en «Salas que has visitado». |
+| **Organizador** | «Mi sala»: renombrar, compartir toda la sala, y cambiar por rifa entre «En mi sala» y «Solo con enlace o código». |
+
+Códigos: alfabeto de 32 caracteres sin 0/O/1/I, 7 caracteres (≈35 bits), generados con CSPRNG. Un código inexistente devuelve siempre el mismo 404.
+Pendiente: limitar la frecuencia de consultas de códigos por IP (hoy no hay límite; el espacio de búsqueda es amplio pero no infinito).
+
+Endpoints: `GET /rooms/{code}`, `GET /resolve/{code}`, `GET|POST /me/room`, `GET /me/rooms`, `POST /raffles/{id}/visibility`; páginas compartibles `/s/{code}` y `/r/{id}`.
+
 ## Compartir y crecimiento
 
 - `GET /r/{id}`: página con etiquetas Open Graph y Twitter Card (los rastreadores de WhatsApp, Facebook, LinkedIn, X y Telegram no ejecutan JavaScript ni leen el `#`) que redirige a `/#/r/{id}`.
