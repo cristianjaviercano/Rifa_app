@@ -18,3 +18,33 @@ jobs:
         with: {python-version: "3.13"}
       - run: pip install -r requirements.txt
       - run: python -m pytest -q
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_PASSWORD: pg, POSTGRES_DB: sgrs}
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    env:
+      PG_DSN: postgresql://postgres:pg@localhost:5432/sgrs
+      SGRS_DSN: postgresql://postgres:pg@localhost:5432/sgrs
+      SGRS_DEV_ECHO_OTP: "1"   # solo para este E2E; nunca en producción
+      SGRS_UPLOAD_DIR: /tmp/uploads
+      SGRS_JWT_SECRET: e2e-secret-e2e-secret-e2e-secret-123
+      BASE_URL: http://127.0.0.1:8099
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.13"}
+      - run: pip install -r requirements.txt
+      - run: psql "$PG_DSN" -f schema.sql
+      - run: npm install --no-save playwright && npx playwright install --with-deps chromium
+      - run: |
+          nohup python -m uvicorn app.main:app --port 8099 > api.log 2>&1 &
+          sleep 3
+      - run: node e2e/e2e.mjs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: {name: e2e-shots, path: e2e/shots}

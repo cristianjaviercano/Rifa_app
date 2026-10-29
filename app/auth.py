@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import os
 import re
 import secrets
 
@@ -9,7 +10,7 @@ from pydantic import BaseModel, Field
 from . import sms
 from .db import get_conn
 from .raffles import err
-from .security import SECRET, issue_token
+from .security import SECRET, TOKEN_TTL, issue_token
 
 router = APIRouter(prefix="/api/v1/auth")
 PHONE = re.compile(r"^\+[1-9]\d{7,14}$")
@@ -41,7 +42,10 @@ def otp_request(b: OtpRequest, conn=Depends(get_conn)):
     conn.execute("INSERT INTO otp_codes (phone_e164, code_hash, expires_at)"
                  " VALUES (%s,%s, now() + make_interval(secs => %s))", (b.phone, _hash(b.phone, code), TTL_SECONDS))
     sms.send(b.phone, f"Tu código SGRS es {code}. Vence en 5 minutos.")
-    return {"expires_in": TTL_SECONDS}  # no se revela si el usuario existe
+    out = {"expires_in": TTL_SECONDS}  # no se revela si el usuario existe
+    if os.environ.get("SGRS_DEV_ECHO_OTP") == "1":  # SOLO desarrollo/E2E; nunca en producción
+        out["dev_code"] = code
+    return out
 
 
 @router.post("/otp/verify")
@@ -62,4 +66,4 @@ def otp_verify(b: OtpVerify, conn=Depends(get_conn)):
         "INSERT INTO users (phone_e164, name, phone_verified_at) VALUES (%s,%s, now())"
         " ON CONFLICT (phone_e164) DO UPDATE SET phone_verified_at = coalesce(users.phone_verified_at, now())"
         " RETURNING id, role", (b.phone, b.name)).fetchone()
-    return {"access_token": issue_token(u["id"], u["role"]), "token_type": "bearer", "expires_in": 900}
+    return {"access_token": issue_token(u["id"], u["role"]), "token_type": "bearer", "expires_in": TOKEN_TTL}

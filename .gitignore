@@ -2,3 +2,5 @@ __pycache__/
 .pytest_cache/
 .env
 uploads/
+node_modules/
+e2e/shots/

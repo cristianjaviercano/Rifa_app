@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from .audit import write_audit
 from .db import get_conn
-from .security import current_user
+from .security import current_user, optional_user
 
 router = APIRouter(prefix="/api/v1")
 
@@ -38,6 +38,7 @@ class RaffleIn(BaseModel):
     draw_method: str = Field(pattern="^(INTERNAL_CSPRNG|EXTERNAL_LOTTERY)$")
     lottery_name: Optional[str] = None
     hold_minutes: int = Field(default=120, gt=0)
+    payment_accounts: dict[str, str] = {}
     prizes: list[PrizeIn] = Field(min_length=1)
 
 
@@ -65,10 +66,11 @@ def create_raffle(b: RaffleIn, user=Depends(current_user), conn=Depends(get_conn
         raise err(422, "LOTTERY_NAME_REQUIRED")
     r = conn.execute(
         "INSERT INTO raffles (owner_id,title,terms_md,total_numbers,numbers_per_ticket,ticket_price,"
-        " sales_close_at,draw_at,draw_method,lottery_name,hold_minutes) VALUES"
-        " (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id",
+        " sales_close_at,draw_at,draw_method,lottery_name,hold_minutes,payment_accounts) VALUES"
+        " (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING id",
         (user["id"], b.title, b.terms_md, b.total_numbers, b.numbers_per_ticket, b.ticket_price,
-         b.sales_close_at, b.draw_at, b.draw_method, b.lottery_name, b.hold_minutes)).fetchone()
+         b.sales_close_at, b.draw_at, b.draw_method, b.lottery_name, b.hold_minutes,
+         json.dumps(b.payment_accounts))).fetchone()
     for p in b.prizes:
         conn.execute("INSERT INTO prizes (raffle_id,kind,rank,description,rule) VALUES (%s,%s,%s,%s,%s::jsonb)",
                      (r["id"], p.kind, p.rank, p.description, json.dumps({"offset": p.offset})))
@@ -93,11 +95,12 @@ def publish(rid: UUID, user=Depends(current_user), conn=Depends(get_conn)):
 
 
 @router.get("/raffles/{rid}/tickets")
-def list_tickets(rid: UUID, status: Optional[str] = None, conn=Depends(get_conn)):
+def list_tickets(rid: UUID, status: Optional[str] = None, conn=Depends(get_conn), user=Depends(optional_user)):
     rows = conn.execute(
-        "SELECT t.id, t.serial, t.status, array_agg(n.number ORDER BY n.number) AS numbers FROM tickets t"
+        "SELECT t.id, t.serial, t.status, (t.owner_id IS NOT NULL AND t.owner_id = %s) AS mine,"
+        " array_agg(n.number ORDER BY n.number) AS numbers FROM tickets t"
         " JOIN ticket_numbers n ON n.ticket_id=t.id WHERE t.raffle_id=%s AND (%s::text IS NULL OR t.status::text=%s)"
-        " GROUP BY t.id ORDER BY t.serial", (rid, status, status)).fetchall()
+        " GROUP BY t.id ORDER BY t.serial", (user["id"] if user else None, rid, status, status)).fetchall()
     return rows
 
 
@@ -178,7 +181,7 @@ def draw(rid: UUID, body: DrawIn, user=Depends(current_user), conn=Depends(get_c
         t = conn.execute(
             "SELECT t.id, t.owner_id FROM ticket_numbers n JOIN tickets t ON t.id=n.ticket_id"
             " WHERE n.raffle_id=%s AND n.number=%s AND t.status IN ('PAGADO','GANADOR')", (rid, num)).fetchone()
-        item = {"prize_id": p["id"], "kind": p["kind"], "number": num, "winner_ticket": t["id"] if t else None}
+        item = {"prize_id": p["id"], "kind": p["kind"], "description": p["description"], "number": num, "winner_ticket": t["id"] if t else None}
         if t:
             conn.execute("UPDATE tickets SET status='GANADOR' WHERE id=%s", (t["id"],))
             conn.execute("INSERT INTO winners VALUES (%s,%s,%s)", (rid, p["id"], t["id"]))

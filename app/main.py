@@ -10,12 +10,14 @@ from .db import get_conn
 from .auth import router as auth_router
 from .raffles import router as raffles_router
 from .uploads import router as uploads_router
+from .views import router as views_router
 from .security import current_user
 
 app = FastAPI(title="SGRS API", version="1.0")
 app.include_router(raffles_router)
 app.include_router(auth_router)
 app.include_router(uploads_router)
+app.include_router(views_router)
 
 
 class ReservationIn(BaseModel):
@@ -169,3 +171,30 @@ def expire_holds(conn) -> int:
         conn.execute("UPDATE payment_transactions SET status='EXPIRED' WHERE id=%s", (r["id"],))
         write_audit(conn, None, "EXPIRE", "payment_transaction", r["id"], {})
     return len(rows)
+
+
+# --- Interfaz web (PWA estática) y cabeceras de seguridad -------------------------------------
+import os
+from pathlib import Path
+
+from fastapi.staticfiles import StaticFiles
+
+CSP = ("default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; "
+       "connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("Content-Security-Policy", CSP)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("Referrer-Policy", "no-referrer")
+    resp.headers.setdefault("Permissions-Policy", "camera=(self), geolocation=(), microphone=()")
+    if request.url.path in ("/", "/sw.js", "/index.html", "/manifest.webmanifest"):
+        resp.headers["Cache-Control"] = "no-cache"  # el service worker versiona el resto
+    return resp
+
+
+WEB = Path(os.environ.get("SGRS_WEB_DIR", Path(__file__).resolve().parent.parent / "web"))
+if WEB.is_dir():
+    app.mount("/", StaticFiles(directory=WEB, html=True), name="web")  # al final: la API tiene prioridad

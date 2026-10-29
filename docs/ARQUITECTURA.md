@@ -63,10 +63,27 @@ docker compose --env-file .env up --build
 ## Pruebas rápidas
 
 ```bash
-python -m pytest -q                       # 21 pruebas, incluida concurrencia
+python -m pytest -q                       # 26 pruebas, incluida concurrencia
 SGRS_DSN=postgresql://... python -m scripts.simulate --buyers 40 --seed 7 --method EXTERNAL_LOTTERY
 ```
+E2E con navegador real en viewport móvil (`e2e/e2e.mjs`, requiere `SGRS_DEV_ECHO_OTP=1`, solo pruebas): crea rifa, compra con comprobante, aprueba, cierra, sortea, verifica resultado público, instalabilidad y modo sin conexión.
+
 `scripts/simulate.py` ejecuta un sorteo ficticio completo contra la API real y comprueba invariantes (sin boletas CONGELADO al sortear, recaudo = boletas × precio, cadena de auditoría íntegra).
+
+## Interfaz web (PWA)
+
+JavaScript puro con módulos ES, sin build ni dependencias: la API la sirve desde `web/` (mismo origen, sin CORS). Instalable (manifest + íconos), service worker red-primero para el shell (la API nunca se cachea) y modo oscuro.
+
+| Ruta | Pantalla |
+|---|---|
+| `#/` | Rifas con progreso y cuenta regresiva |
+| `#/login` | OTP en dos pasos |
+| `#/r/:id` | Grilla de boletas (5 s de refresco), buscador, filtro, barra de pago fija; resultado público si ya se sorteó |
+| `#/pay/:id` | Cuentas de pago con *copiar*, plataforma, n.º de transacción, comprobante (se reduce a ≤1600 px), clave de idempotencia |
+| `#/mine` | Mis compras con línea de tiempo y cuenta regresiva de la reserva |
+| `#/admin`, `#/admin/new`, `#/admin/r/:id` | Crear/publicar, cola de verificación con visor de comprobante, aprobar/rechazar, cierre y arqueo, sorteo |
+
+Seguridad del cliente: todo texto entra por nodos DOM (nunca `innerHTML`), CSP `default-src 'self'` sin scripts ni estilos en línea, token en `localStorage` (vigencia 8 h, `SGRS_TOKEN_TTL`).
 
 ## Seguridad implementada
 
@@ -78,5 +95,5 @@ SGRS_DSN=postgresql://... python -m scripts.simulate --buyers 40 --seed 7 --meth
 1. Proveedor real de SMS/WhatsApp: hoy `app/sms.py` solo registra el mensaje; y envío de la cola `notifications` más recordatorio de `draw_at`.
 2. Almacenamiento de comprobantes en objeto (S3/GCS, cifrado en reposo): hoy es disco local (`app/storage.py` es la única pieza a reemplazar).
 3. Migraciones (Alembic) en lugar de `schema.sql` inicial, TLS en el proxy inverso, backups de PostgreSQL y límite de tasa por IP.
-4. Frontend PWA.
+4. Refresh token (hoy el JWT dura 8 h) y cerrar sesión en servidor; notificaciones push/recordatorios.
 5. Docker y el job de CI no se ejecutaron en este entorno; solo las pruebas locales.
