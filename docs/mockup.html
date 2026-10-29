@@ -1,0 +1,540 @@
+<title>Maqueta Rifa App</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Concepto: la app real dentro de un teléfono, con un panel de dirección al lado para recorrer el flujo completo. */
+:root {
+  --bg: #EDF1EF; --surface: #FFFFFF; --ink: #0E1F19; --muted: #587066; --line: #DAE3DE;
+  --accent: #0B6E4F; --accent-ink: #FFFFFF; --accent-soft: #E3F3EC;
+  --ok: #166534; --ok-bg: #DCFCE7; --warn: #8A4B0B; --warn-bg: #FDF0CF; --bad: #B42318; --bad-bg: #FDE4E1;
+  --info: #1D4ED8; --info-bg: #DDE8FD; --wa: #DCF8C6; --wa-ink: #0E1F19; --chat-bg: #E7E0D6;
+  --bezel: #16201C; --shadow: 0 1px 2px rgba(14,31,25,.08), 0 18px 48px rgba(14,31,25,.14);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0A1411; --surface: #111F1A; --ink: #E6EFEA; --muted: #93A89F; --line: #223530;
+    --accent: #34D399; --accent-ink: #04261B; --accent-soft: #0F2B22;
+    --ok: #86EFAC; --ok-bg: #0F2D1B; --warn: #FCD34D; --warn-bg: #3A2A07; --bad: #FDA29B; --bad-bg: #3B1512;
+    --info: #A5C0FB; --info-bg: #12264F; --wa: #1F4B3A; --wa-ink: #E6EFEA; --chat-bg: #0E1A16;
+    --bezel: #050A08; --shadow: 0 18px 48px rgba(0,0,0,.5); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0A1411; --surface: #111F1A; --ink: #E6EFEA; --muted: #93A89F; --line: #223530;
+  --accent: #34D399; --accent-ink: #04261B; --accent-soft: #0F2B22;
+  --ok: #86EFAC; --ok-bg: #0F2D1B; --warn: #FCD34D; --warn-bg: #3A2A07; --bad: #FDA29B; --bad-bg: #3B1512;
+  --info: #A5C0FB; --info-bg: #12264F; --wa: #1F4B3A; --wa-ink: #E6EFEA; --chat-bg: #0E1A16;
+  --bezel: #050A08; --shadow: 0 18px 48px rgba(0,0,0,.5); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding-block: 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button { font: inherit; color: inherit; }
+.stage { display: flex; flex-wrap: wrap; gap: 28px 40px; justify-content: center; align-items: flex-start; max-width: 1000px; margin: 0 auto; }
+
+/* ---------- Teléfono ---------- */
+.phone {
+  width: 390px; max-width: 100%; height: 760px; background: var(--bezel); border-radius: 44px; padding: 10px;
+  box-shadow: var(--shadow); position: relative; flex: none;
+}
+.screen { position: relative; height: 100%; border-radius: 34px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; isolation: isolate; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.brand { font-weight: 800; letter-spacing: -.01em; font-size: 1.1rem; }
+.brand i { font-style: normal; color: var(--accent); }
+.who { font-size: .8rem; color: var(--muted); }
+.content { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 16px; min-height: 0; }
+.tabs { display: flex; background: var(--surface); border-top: 1px solid var(--line); flex: none; }
+.tabs button { flex: 1; background: none; border: 0; padding: 9px 0 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: .68rem; font-weight: 600; color: var(--muted); cursor: pointer; }
+.tabs button[aria-current="page"] { color: var(--accent); }
+.tabs svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cta { flex: none; background: var(--surface); border-top: 1px solid var(--line); padding: 10px 16px; display: flex; align-items: center; gap: 12px; }
+.cta .grow { flex: 1; min-width: 0; }
+
+h1 { font-size: 1.25rem; line-height: 1.2; margin: 0 0 10px; letter-spacing: -.01em; }
+h2 { font-size: 1rem; margin: 0 0 8px; }
+p { margin: 0 0 8px; }
+.muted { color: var(--muted); font-size: .85rem; }
+.num { font-variant-numeric: tabular-nums; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.row.wrap { flex-wrap: wrap; }
+.stack > * + * { margin-top: 10px; }
+.btn { appearance: none; border: 1px solid transparent; background: var(--accent); color: var(--accent-ink); border-radius: 12px; min-height: 46px; padding: 0 16px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+.btn.block { width: 100%; }
+.btn.ghost { background: transparent; color: var(--accent); border-color: var(--line); }
+.btn.danger { background: var(--bad-bg); color: var(--bad); }
+.btn.sm { min-height: 38px; padding: 0 12px; font-size: .85rem; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+:is(button, input, select, textarea, a):focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+label { display: block; font-weight: 600; font-size: .85rem; margin-bottom: 5px; }
+input, select, textarea { width: 100%; min-height: 46px; padding: 9px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; }
+textarea { min-height: 84px; resize: vertical; }
+.field { margin-bottom: 12px; }
+.hint { color: var(--muted); font-size: .8rem; margin-top: 4px; }
+.err { color: var(--bad); font-size: .85rem; margin: 4px 0; }
+.chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+.chip.ok { background: var(--ok-bg); color: var(--ok); } .chip.warn { background: var(--warn-bg); color: var(--warn); }
+.chip.bad { background: var(--bad-bg); color: var(--bad); } .chip.info { background: var(--info-bg); color: var(--info); }
+.chip.neutral { background: var(--line); color: var(--muted); }
+.price { font-size: 1.2rem; font-weight: 800; }
+.bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 8px 0 6px; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: .88rem; margin: 0; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; text-align: right; font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+a.card-link { display: block; color: inherit; text-decoration: none; cursor: pointer; }
+
+.grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; margin: 8px 0 4px; }
+.cell { min-height: 44px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; padding: 2px; }
+.cell.held { background: var(--warn-bg); color: var(--warn); border-color: transparent; cursor: not-allowed; }
+.cell.paid { background: var(--line); color: var(--muted); text-decoration: line-through; border-color: transparent; cursor: not-allowed; }
+.cell.mine { background: var(--info-bg); color: var(--info); border-color: transparent; cursor: not-allowed; }
+.cell.win { background: var(--ok-bg); color: var(--ok); border-color: transparent; cursor: default; }
+.cell.sel { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .72rem; color: var(--muted); margin: 6px 0; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--line); }
+.legend .sel { background: var(--accent); border-color: var(--accent); } .legend .held { background: var(--warn-bg); } .legend .paid { background: var(--line); } .legend .mine { background: var(--info-bg); }
+.timeline { list-style: none; margin: 8px 0 0; padding: 0; display: flex; gap: 6px; font-size: .7rem; color: var(--muted); }
+.timeline li { flex: 1; border-top: 4px solid var(--line); padding-top: 6px; }
+.timeline li.done { border-color: var(--accent); color: var(--ink); font-weight: 700; } .timeline li.stop { border-color: var(--bad); color: var(--bad); font-weight: 700; }
+.copy { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.proof { max-width: 100%; max-height: 180px; border-radius: 10px; margin-top: 8px; display: block; }
+.empty { text-align: center; color: var(--muted); padding: 28px 8px; }
+.toast { position: absolute; left: 16px; right: 16px; bottom: 76px; z-index: 5; background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 12px; font-weight: 600; font-size: .85rem; text-align: center; animation: pop .25s ease-out; }
+.toast.bad { background: var(--bad); color: #fff; }
+@keyframes pop { from { transform: translateY(8px); opacity: 0; } }
+.overlay { position: absolute; inset: 0; z-index: 6; background: rgba(8, 18, 14, .6); display: flex; align-items: center; justify-content: center; padding: 18px; }
+.dialog { background: var(--surface); border-radius: 18px; padding: 16px; width: 100%; max-height: 90%; overflow-y: auto; }
+.tag-demo { font-size: .72rem; color: var(--muted); text-align: center; margin: 6px 0 0; }
+
+/* ---------- Panel de dirección ---------- */
+.panel { flex: 1 1 320px; max-width: 440px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+.panel h3 { font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.pcard { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--bg); border-radius: 12px; padding: 4px; gap: 4px; }
+.seg button { border: 0; background: none; border-radius: 9px; padding: 9px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.steps li { display: flex; gap: 10px; align-items: flex-start; font-size: .88rem; }
+.steps .dot { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); margin-top: 1px; display: grid; place-items: center; font-size: .7rem; font-weight: 800; color: var(--accent-ink); }
+.steps li.done .dot { background: var(--accent); border-color: var(--accent); }
+.steps li.done span { color: var(--muted); text-decoration: line-through; }
+.sims { display: flex; flex-wrap: wrap; gap: 8px; }
+.sims .btn { min-height: 38px; font-size: .82rem; }
+.chat { background: var(--chat-bg); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 8px; max-height: 330px; overflow-y: auto; }
+.bubble { background: var(--wa); color: var(--wa-ink); border-radius: 4px 14px 14px 14px; padding: 8px 10px; font-size: .84rem; max-width: 92%; align-self: flex-start; }
+.bubble .meta { display: flex; justify-content: space-between; gap: 10px; font-size: .68rem; color: var(--muted); margin-bottom: 3px; }
+.bubble .tpl { font-family: ui-monospace, Menlo, monospace; }
+.chat .none { color: var(--muted); font-size: .85rem; text-align: center; padding: 14px 6px; }
+.theme { align-self: flex-end; }
+
+@media (max-width: 520px) {
+  .phone { width: 100%; height: 720px; padding: 0; border-radius: 0; background: none; box-shadow: none; }
+  .screen { border-radius: 18px; border: 1px solid var(--line); }
+}
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+</style>
+
+<div class="stage">
+  <div class="phone"><div class="screen" id="screen" aria-label="Maqueta de la aplicación"></div></div>
+
+  <aside class="panel" aria-label="Panel de dirección de la demostración">
+    <div class="pcard">
+      <h3>Ver la aplicación como</h3>
+      <div class="seg" role="group" aria-label="Rol">
+        <button id="role-buyer" data-panel="role-buyer" aria-pressed="true">Comprador</button>
+        <button id="role-admin" data-panel="role-admin" aria-pressed="false">Administrador</button>
+      </div>
+    </div>
+    <div class="pcard">
+      <h3>Recorrido sugerido</h3>
+      <ol class="steps" id="steps"></ol>
+    </div>
+    <div class="pcard">
+      <h3>Simuladores</h3>
+      <div class="sims">
+        <button class="btn ghost" id="sim-buyer" data-panel="sim-buyer">Otro comprador reserva</button>
+        <button class="btn ghost" id="sim-time" data-panel="sim-time">Adelantar 2 h</button>
+        <button class="btn ghost" id="sim-reset" data-panel="sim-reset">Reiniciar demo</button>
+      </div>
+      <p class="hint">Todo ocurre en esta página con datos de ejemplo. Nada se guarda ni se envía.</p>
+    </div>
+    <div class="pcard">
+      <h3>WhatsApp Business · mensajes enviados</h3>
+      <div class="chat" id="chat" aria-live="polite"></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const money = (n) => "$ " + Number(n).toLocaleString("es-CO");
+  const pad = (n) => String(n).padStart(2, "0");
+  const TOTAL = 40, PRICE = 10000, HOLD_MS = 2 * 3600e3;
+
+  const PRIZES = [{ label: "Moto Yamaha 0 km", off: 0, kind: "Principal" }, { label: "Seco $500.000", off: 1, kind: "Seco" }, { label: "Consecutivo $200.000", off: -1, kind: "Consecutivo" }];
+  const TEMPLATES = {
+    OTP: ["sgrs_codigo", (p) => `${p.code} es tu código de verificación de Rifa App.`],
+    PAYMENT_APPROVED: ["sgrs_pago_confirmado", (p) => `Hola, tu pago de la rifa ${p.title} fue confirmado. Tus números: ${p.nums}. Detalle: rifa.app/r/moto`],
+    DRAW_FINISHED: ["sgrs_sorteo_concluido", (p) => `El sorteo de ${p.title} concluyó. Número ganador: ${p.win}. Verifica el resultado: rifa.app/r/moto`],
+    WINNER: ["sgrs_ganador", (p) => `¡Felicidades! Ganaste ${p.prize} en la rifa ${p.title} con el número ${p.num}. El administrador te contactará.`],
+  };
+  const BUYERS = ["Laura", "Andrés", "Marcela", "Julián", "Sofía", "Camilo"];
+  const TITLE = "Rifa Moto Yamaha 2026";
+  let skew = 0;
+  const clock = () => Date.now() + skew;
+
+  function receipt(platform, amount, ref) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="420"><rect width="320" height="420" fill="#fff"/><rect width="320" height="70" fill="#7B1FA2"/><text x="20" y="44" font-family="Arial" font-size="24" font-weight="700" fill="#fff">${esc(platform)}</text><circle cx="160" cy="125" r="28" fill="#2E7D32"/><path d="M146 125l10 10 20-22" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="160" y="185" text-anchor="middle" font-family="Arial" font-size="20" font-weight="700" fill="#222">¡Pago exitoso!</text><text x="160" y="225" text-anchor="middle" font-family="Arial" font-size="30" font-weight="700" fill="#222">${money(amount)}</text><g font-family="Arial" font-size="14" fill="#555"><text x="24" y="285">Referencia</text><text x="296" y="285" text-anchor="end" fill="#222">${esc(ref || "—")}</text><text x="24" y="315">Destino</text><text x="296" y="315" text-anchor="end" fill="#222">300 123 4567</text><text x="24" y="345">Estado</text><text x="296" y="345" text-anchor="end" fill="#2E7D32">Exitoso</text></g></svg>`;
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+
+  /* ---------- Estado ---------- */
+  let S;
+  function fresh() {
+    skew = 0;
+    const tickets = Array.from({ length: TOTAL }, (_, n) => ({ n, st: "DISPONIBLE", owner: null }));
+    const owners = ["Laura", "Andrés", "Marcela", "Julián"];
+    [3, 8, 9, 14, 15, 16, 21, 22, 27, 30, 33, 36].forEach((n, i) => { tickets[n].st = "PAGADO"; tickets[n].owner = owners[i % 4]; });
+    const txs = [];
+    [5, 6].forEach((n) => { tickets[n].st = "CONGELADO"; tickets[n].owner = "Laura"; });
+    txs.push({ id: 1, buyer: "Laura", phone: "+57 301 555 0101", tickets: [5, 6], platform: "Nequi", ref: "NQ-88231", amount: 2 * PRICE, proof: receipt("Nequi", 2 * PRICE, "NQ-88231"), status: "PENDING", createdAt: clock() - 42 * 60e3, expiresAt: clock() + 78 * 60e3 });
+    return {
+      route: "home", user: null, sel: new Set(), txs, tickets, nextTx: 2, status: "OPEN", method: "INTERNAL", closeAt: clock() + (2 * 24 + 4) * 3600e3,
+      notes: [], done: {}, draft: { phone: "300 222 0002", code: "", name: "Beto", platform: "NEQUI", ref: "", file: null, err: "" }, otpSent: false, otpCode: null,
+      overlay: null, toast: null, arqueo: null, draw: null, adminDraw: { num: "", url: "" }, lastTx: null,
+    };
+  }
+  S = fresh();
+
+  const sold = () => S.tickets.filter((t) => t.st === "PAGADO" || t.st === "GANADOR").length;
+  const held = () => S.tickets.filter((t) => t.st === "CONGELADO").length;
+  const selling = () => S.status === "OPEN";
+  const me = () => S.user && S.user.name;
+
+  function notify(to, type, params) {
+    const [tpl, fn] = TEMPLATES[type];
+    S.notes.unshift({ to, tpl, text: fn(params), at: new Date(clock()) });
+  }
+  function toast(msg, bad) { S.toast = { msg, bad }; render(); clearTimeout(toast.t); toast.t = setTimeout(() => { S.toast = null; render(); }, 2600); }
+  const mark = (k) => { S.done[k] = true; };
+
+  /* ---------- Acciones de negocio ---------- */
+  function releaseTx(tx, status, reason) {
+    tx.status = status; if (reason) tx.reason = reason;
+    tx.tickets.forEach((n) => { S.tickets[n].st = "DISPONIBLE"; S.tickets[n].owner = null; });
+  }
+  function expireHolds() {
+    let changed = false;
+    S.txs.forEach((tx) => { if (tx.status === "PENDING" && clock() >= tx.expiresAt) { releaseTx(tx, "EXPIRED"); changed = true; } });
+    return changed;
+  }
+  function approve(id) {
+    const tx = S.txs.find((x) => x.id === id);
+    if (!tx || tx.status !== "PENDING") return;
+    if (clock() >= tx.expiresAt) { toast("La reserva expiró", true); return; }
+    tx.status = "APPROVED"; tx.tickets.forEach((n) => { S.tickets[n].st = "PAGADO"; });
+    notify(tx.buyer, "PAYMENT_APPROVED", { title: TITLE, nums: tx.tickets.map(pad).join(", ") });
+    mark("approve"); toast("Pago aprobado · WhatsApp enviado");
+  }
+  function closeSales() {
+    if (S.status !== "OPEN") return;
+    S.status = "CLOSED";
+    const byPlat = {};
+    S.txs.filter((t) => t.status === "APPROVED").forEach((t) => { byPlat[t.platform] = (byPlat[t.platform] || 0) + t.tickets.length * PRICE; });
+    S.arqueo = { sold: sold(), validated: sold() * PRICE, pending: held() * PRICE, byPlat, hash: hashOf(JSON.stringify([sold(), byPlat])) };
+    mark("close"); toast("Ventas cerradas · arqueo emitido");
+  }
+  function hashOf(s) { let h = 5381, out = ""; for (let r = 0; r < 4; r++) { for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i) + r) >>> 0; out += h.toString(16).padStart(8, "0"); } return out; }
+  function runDraw() {
+    const pending = S.txs.filter((t) => t.status === "PENDING").length;
+    if (pending) return toast(`Resuelve ${pending} pago(s) pendiente(s) antes de sortear`, true);
+    let win;
+    if (S.method === "EXTERNAL") {
+      win = Number(S.adminDraw.num);
+      if (S.adminDraw.num === "" || !(win >= 0 && win < TOTAL) || !S.adminDraw.url.trim()) return toast("Indica un número válido (0–39) y el enlace de la fuente", true);
+    } else {
+      const pool = S.tickets.filter((t) => t.st === "PAGADO");
+      if (!pool.length) return toast("No hay boletas pagadas para sortear", true);
+      const buf = new Uint32Array(1); crypto.getRandomValues(buf);
+      win = pool[buf[0] % pool.length].n;
+    }
+    const results = PRIZES.map((p) => {
+      const num = (win + p.off + TOTAL) % TOTAL, t = S.tickets[num];
+      return { ...p, num, owner: t.st === "PAGADO" || t.st === "GANADOR" ? t.owner : null };
+    });
+    results.forEach((r) => { if (r.owner) S.tickets[r.num].st = "GANADOR"; });
+    S.draw = { win, results, method: S.method, url: S.adminDraw.url };
+    const winners = new Set(results.filter((r) => r.owner).map((r) => r.owner));
+    results.filter((r) => r.owner).forEach((r) => notify(r.owner, "WINNER", { title: TITLE, prize: r.label, num: pad(r.num) }));
+    new Set(S.tickets.filter((t) => (t.st === "PAGADO" || t.st === "GANADOR") && !winners.has(t.owner)).map((t) => t.owner))
+      .forEach((b) => notify(b, "DRAW_FINISHED", { title: TITLE, win: pad(win) }));
+    S.status = "DRAWN"; S.overlay = null; mark("draw"); toast("Sorteo realizado");
+  }
+
+  /* ---------- Vistas ---------- */
+  const ICON = {
+    ticket: '<path d="M3 9a2 2 0 0 0 0 6v2a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-2a2 2 0 0 1 0-6V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z"/><path d="M13 6v12" stroke-dasharray="2 3"/>',
+    receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',
+    out: '<path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/>',
+  };
+  const svg = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>`;
+  const chipFor = (st) => ({ OPEN: ["Abierta", "ok"], CLOSED: ["Ventas cerradas", "warn"], DRAWN: ["Sorteada", "info"] }[st]);
+  const cd = (t) => `<span class="num" data-cd="${t}"></span>`;
+  const remaining = (t) => { let s = Math.max(0, Math.floor((t - clock()) / 1000)); const d = Math.floor(s / 86400); s %= 86400; const p = (x) => String(x).padStart(2, "0"); const hms = `${p(Math.floor(s / 3600))}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`; return d ? `${d}d ${hms}` : hms; };
+
+  function raffleCard() {
+    const pct = Math.round((sold() / TOTAL) * 100), [l, k] = chipFor(S.status);
+    return `<a class="card card-link" data-act="open-raffle" tabindex="0" role="link">
+      <div class="row"><h2>${TITLE}</h2><span class="chip ${k}">${l}</span></div>
+      <div class="row"><span class="price">${money(PRICE)}</span><span class="muted">por número</span></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="row muted"><span>${pct}% vendido</span><span>${selling() ? "Cierra en " + cd(S.closeAt) : ""}</span></div></a>`;
+  }
+  function vHome() {
+    return `<h1>Rifas disponibles</h1>${raffleCard()}
+      <div class="card"><div class="row"><h2>Canasta navideña 2025</h2><span class="chip info">Sorteada</span></div>
+      <div class="row"><span class="price">${money(5000)}</span><span class="muted">por número</span></div>
+      <div class="bar"><i style="width:100%"></i></div><div class="muted">100% vendido · Lotería de Bogotá</div></div>
+      <p class="tag-demo">Datos de ejemplo</p>`;
+  }
+  function vLogin() {
+    const d = S.draft;
+    if (!S.otpSent) return `<h1>Entrar</h1><form class="card" data-form="otp-request" novalidate>
+      <div class="field"><label for="phone">Tu celular</label><input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(d.phone)}">
+      <div class="hint">Te enviaremos un código por WhatsApp para verificar tu número.</div></div>
+      <div class="err">${esc(d.err)}</div><button class="btn block" type="submit">Enviar código</button></form>`;
+    return `<h1>Verifica tu número</h1><form class="card" data-form="otp-verify" novalidate>
+      <p>Enviamos un código por WhatsApp a <b>+57 ${esc(d.phone)}</b>. Míralo en el panel de mensajes.</p>
+      <div class="field"><label for="code">Código de 6 dígitos</label><input id="code" name="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••" value="${esc(d.code)}"></div>
+      <div class="field"><label for="uname">Tu nombre</label><input id="uname" name="name" value="${esc(d.name)}" maxlength="40"></div>
+      <div class="err">${esc(d.err)}</div><button class="btn block" type="submit">Verificar</button>
+      <p style="margin-top:10px"><button class="btn ghost sm" type="button" data-act="otp-back">Cambiar número</button></p></form>`;
+  }
+  function cellHtml(t) {
+    let cls = "cell", dis = "", st = "disponible";
+    const mineTx = S.user && t.owner === me() && (t.st === "CONGELADO" || t.st === "PAGADO");
+    if (S.sel.has(t.n)) cls += " sel";
+    else if (t.st === "GANADOR") { cls += " win"; dis = "disabled"; st = "ganadora"; }
+    else if (mineTx) { cls += " mine"; dis = "disabled"; st = "tuya"; }
+    else if (t.st === "CONGELADO") { cls += " held"; dis = "disabled"; st = "en revisión"; }
+    else if (t.st === "PAGADO") { cls += " paid"; dis = "disabled"; st = "pagada"; }
+    if (!selling() && !S.sel.has(t.n)) dis = "disabled";
+    return `<button class="${cls}" ${dis} data-act="toggle" data-n="${t.n}" aria-pressed="${S.sel.has(t.n)}" aria-label="Número ${pad(t.n)}: ${st}">${pad(t.n)}</button>`;
+  }
+  function vRaffle() {
+    const pct = Math.round((sold() / TOTAL) * 100), [l, k] = chipFor(S.status);
+    let result = "";
+    if (S.status === "DRAWN" && S.draw) {
+      result = `<div class="card"><h2>Resultado del sorteo</h2><div class="price num">Número ganador: ${pad(S.draw.win)}</div>
+        <p class="muted">${S.draw.method === "EXTERNAL" ? `Según lotería oficial. <a href="#" data-act="noop">Verificar fuente</a>` : "Generado con un generador aleatorio criptográficamente seguro."}</p>
+        <ul style="margin:0;padding-left:18px">${S.draw.results.map((r) => `<li>${esc(r.label)}: <b class="num">${pad(r.num)}</b> ${r.owner ? "· " + esc(r.owner) : '· <span class="muted">sin boleta vendida</span>'}</li>`).join("")}</ul></div>`;
+    }
+    return `<div class="row"><h1>${TITLE}</h1><span class="chip ${k}">${l}</span></div>
+      <div class="card"><div class="row"><span class="price">${money(PRICE)}</span><span class="muted">por número</span></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="row muted"><span>${sold()}/${TOTAL} vendidas</span><span>${selling() ? "Cierra en " + cd(S.closeAt) : "Ventas cerradas"}</span></div>
+      <div class="muted" style="margin-top:6px">Sorteo: 8 nov · ${S.method === "EXTERNAL" ? "Lotería de Bogotá" : "Generador aleatorio seguro"}</div></div>
+      ${result}
+      <div class="card"><h2>Premios</h2><ul style="margin:0;padding-left:18px">${PRIZES.map((p) => `<li>${esc(p.label)}</li>`).join("")}</ul></div>
+      <h2>${selling() ? "Elige tus números" : "Números"}</h2>
+      <div class="legend" aria-hidden="true"><span><i></i>Libre</span><span><i class="sel"></i>Elegida</span><span><i class="held"></i>En revisión</span><span><i class="paid"></i>Pagada</span><span><i class="mine"></i>Tuya</span></div>
+      <div class="grid" role="group" aria-label="Números">${S.tickets.map(cellHtml).join("")}</div>`;
+  }
+  const selList = () => [...S.sel].sort((a, b) => a - b);
+  function vPay() {
+    const d = S.draft, picks = selList(), total = picks.length * PRICE;
+    const platforms = [["NEQUI", "Nequi"], ["DAVIPLATA", "Daviplata"], ["BREVE", "Bre-B"], ["PAYPAL", "PayPal"], ["OTRO", "Otro"]];
+    return `<h1>Confirmar pago</h1>
+      <div class="card"><h2>${TITLE}</h2><dl class="kv"><dt>Números</dt><dd class="num">${picks.map(pad).join(" · ")}</dd><dt>Total a pagar</dt><dd class="num">${money(total)}</dd><dt>Reserva</dt><dd>120 min tras enviar</dd></dl></div>
+      <div class="card"><h2>Paga a</h2><div class="copy"><span><b>Nequi</b> <span class="num">300 123 4567</span></span><button class="btn ghost sm" data-act="copy">Copiar</button></div></div>
+      <form class="card" data-form="pay" novalidate>
+        <div class="field"><label for="platform">¿Con qué plataforma pagaste?</label><select id="platform" name="platform">${platforms.map(([v, l]) => `<option value="${v}" ${d.platform === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+        <div class="field"><label for="ref">Número de transacción</label><input id="ref" name="ref" autocomplete="off" maxlength="40" placeholder="Ej. M1234567" value="${esc(d.ref)}"></div>
+        <div class="field"><label for="proof">Comprobante (foto o captura)</label><input id="proof" name="proof" type="file" accept="image/*">${d.file ? `<img class="proof" src="${d.file}" alt="Vista previa del comprobante">` : ""}
+          <div class="hint">Puedes indicar el número, adjuntar el comprobante o ambos. ${d.file ? "" : '<a href="#" data-act="sample-proof">Usar un comprobante de ejemplo</a>'}</div></div>
+        <div class="err">${esc(d.err)}</div><button class="btn block" type="submit">Enviar para verificación · ${money(total)}</button></form>`;
+  }
+  function vDone() {
+    const tx = S.txs.find((t) => t.id === S.lastTx);
+    return `<h1>Pago reportado</h1><div class="card stack"><p>Tus números quedaron <b>reservados</b> mientras el administrador verifica el pago.</p>
+      <p>Vence en: ${tx ? cd(tx.expiresAt) : ""}</p><p class="muted">Recibirás un mensaje de WhatsApp cuando el pago sea confirmado.</p>
+      <button class="btn block" data-act="go-mine">Ver mis compras</button></div>`;
+  }
+  const TXS = { PENDING: ["En verificación", "warn"], APPROVED: ["Pagado", "ok"], REJECTED: ["Rechazado", "bad"], EXPIRED: ["Vencido", "neutral"] };
+  function timeline(st) {
+    return `<ol class="timeline"><li class="done">Enviado</li><li class="done">${st === "PENDING" ? "En verificación" : "Verificado"}</li><li class="${st === "APPROVED" ? "done" : st === "REJECTED" || st === "EXPIRED" ? "stop" : ""}">${st === "REJECTED" ? "Rechazado" : st === "EXPIRED" ? "Vencido" : "Pagado"}</li></ol>`;
+  }
+  function vMine() {
+    const mine = S.txs.filter((t) => t.buyer === me()).sort((a, b) => b.createdAt - a.createdAt);
+    if (!mine.length) return `<h1>Mis compras</h1><div class="empty">Aún no tienes compras.<p><button class="btn" data-act="go-home">Ver rifas</button></p></div>`;
+    return `<h1>Mis compras</h1>` + mine.map((t) => { const [l, k] = TXS[t.status]; return `<div class="card stack"><div class="row"><h2>${TITLE}</h2><span class="chip ${k}">${l}</span></div>
+      <div class="num">${t.tickets.map(pad).join(" · ")}</div><div class="row muted"><span>${esc(t.platform)}${t.ref ? " · " + esc(t.ref) : ""}</span><b class="num">${money(t.amount)}</b></div>
+      ${timeline(t.status)}${t.status === "PENDING" ? `<div class="muted">Se libera en ${cd(t.expiresAt)}</div>` : ""}${t.status === "REJECTED" ? `<div class="err">Motivo: ${esc(t.reason)}</div>` : ""}</div>`; }).join("");
+  }
+  function vAdmin() {
+    if (!S.user) return `<div class="empty">Inicia sesión para administrar rifas.<p><button class="btn" data-act="go-login">Entrar</button></p></div>`;
+    if (S.user.role !== "admin") return `<h1>Mis rifas</h1><div class="empty">Todavía no has creado rifas.<p><button class="btn" data-act="go-new">Nueva rifa</button></p></div>`;
+    const [l, k] = chipFor(S.status), pending = S.txs.filter((t) => t.status === "PENDING");
+    let h = `<div class="row"><h1>${TITLE}</h1><span class="chip ${k}">${l}</span></div>
+      <div class="card"><dl class="kv"><dt>Vendidas</dt><dd class="num">${sold()}/${TOTAL}</dd><dt>En revisión</dt><dd class="num">${held()}</dd><dt>Dinero validado</dt><dd class="num">${money(sold() * PRICE)}</dd><dt>Cierre de ventas</dt><dd>${selling() ? cd(S.closeAt) : "Cerrado"}</dd></dl></div>`;
+    if (S.status === "OPEN") h += `<button class="btn ghost block" data-act="close" style="margin-bottom:12px">Cerrar ventas y generar arqueo</button><p class="tag-demo" style="margin:-4px 0 12px">En la app real, el cierre ocurre solo en la fecha indicada. Aquí se adelanta el reloj.</p>`;
+    if (pending.length) h += `<h2>Pagos por verificar (${pending.length})</h2>` + pending.map(txCard).join("");
+    else if (S.status !== "DRAWN") h += `<div class="card muted">No hay pagos pendientes.</div>`;
+    if (S.arqueo) h += `<div class="card"><h2>Arqueo contable</h2><dl class="kv"><dt>Números pagados</dt><dd class="num">${S.arqueo.sold}</dd><dt>Dinero validado</dt><dd class="num">${money(S.arqueo.validated)}</dd><dt>Pendiente</dt><dd class="num">${money(S.arqueo.pending)}</dd>${Object.entries(S.arqueo.byPlat).map(([p, v]) => `<dt>${esc(p)}</dt><dd class="num">${money(v)}</dd>`).join("")}<dt>Huella</dt><dd class="num">${S.arqueo.hash.slice(0, 12)}…</dd></dl></div>`;
+    if (S.status === "CLOSED") h += `<div class="card stack"><h2>Sorteo</h2>
+      <div class="field"><label for="method">Método</label><select id="method" name="method"><option value="INTERNAL" ${S.method === "INTERNAL" ? "selected" : ""}>Interno (generador aleatorio seguro)</option><option value="EXTERNAL" ${S.method === "EXTERNAL" ? "selected" : ""}>Externo (lotería oficial)</option></select></div>
+      ${S.method === "EXTERNAL" ? `<div class="field"><label for="win">Número oficial (0–39)</label><input id="win" name="win" type="number" min="0" max="39" value="${esc(S.adminDraw.num)}"></div><div class="field"><label for="src">Enlace de comprobación</label><input id="src" name="src" placeholder="https://… (fuente pública)" value="${esc(S.adminDraw.url)}"></div>` : `<p class="muted">Se elegirá al azar entre los números pagados.</p>`}
+      ${pending.length ? `<span class="chip warn">Resuelve ${pending.length} pago(s) antes de sortear</span>` : ""}
+      <button class="btn block" data-act="draw-ask" ${pending.length ? "disabled" : ""}>Ejecutar sorteo</button></div>`;
+    if (S.status === "DRAWN") h += `<button class="btn block" data-act="open-raffle">Ver resultado público</button>`;
+    return h + `<p style="margin-top:12px"><button class="btn ghost block" data-act="go-new">Nueva rifa</button></p>`;
+  }
+  function txCard(t) {
+    return `<div class="card stack"><div class="row"><b>${esc(t.buyer)}</b><span class="muted">${esc(t.phone)}</span></div><div class="num">${t.tickets.map(pad).join(" · ")}</div>
+      <dl class="kv"><dt>Plataforma</dt><dd>${esc(t.platform)}</dd><dt>N.º transacción</dt><dd class="num">${esc(t.ref || "—")}</dd><dt>Declarado</dt><dd class="num">${money(t.amount)}</dd><dt>Esperado</dt><dd class="num">${money(t.tickets.length * PRICE)}</dd><dt>Vence en</dt><dd>${cd(t.expiresAt)}</dd></dl>
+      <div class="row wrap"><button class="btn ghost sm" data-act="proof" data-id="${t.id}">Ver comprobante</button>
+      <span class="row"><button class="btn danger sm" data-act="reject-ask" data-id="${t.id}">Rechazar</button><button class="btn sm" data-act="approve" data-id="${t.id}">Aprobar</button></span></div></div>`;
+  }
+  function vNew() {
+    return `<h1>Nueva rifa</h1><form class="card" data-form="new" novalidate>
+      <div class="field"><label for="n-title">Título</label><input id="n-title" value="Rifa Moto Yamaha 2026"></div>
+      <div class="field"><label for="n-total">Cantidad total de números</label><input id="n-total" type="number" value="40"></div>
+      <div class="field"><label for="n-price">Valor de la boleta (COP)</label><input id="n-price" type="number" value="10000"></div>
+      <div class="field"><label for="n-close">Cierre de ventas</label><input id="n-close" type="datetime-local" value="2026-11-06T20:00"></div>
+      <div class="field"><label for="n-method">Método de sorteo</label><select id="n-method"><option>Interno (generador aleatorio seguro)</option><option>Externo (lotería oficial)</option></select></div>
+      <button class="btn block" type="submit">Crear y publicar</button></form>
+      <p class="tag-demo">En esta maqueta se usa la rifa de ejemplo ya publicada.</p>`;
+  }
+
+  const VIEWS = { home: vHome, login: vLogin, raffle: vRaffle, pay: vPay, done: vDone, mine: vMine, admin: vAdmin, new: vNew };
+
+  function overlayHtml() {
+    const o = S.overlay; if (!o) return "";
+    if (o.type === "proof") { const tx = S.txs.find((t) => t.id === o.id); return `<div class="overlay" data-act="close-overlay-bg"><div class="dialog stack"><h2>Comprobante de ${esc(tx.buyer)}</h2><img class="proof" style="max-height:340px;margin:0 auto" src="${tx.proof}" alt="Comprobante de pago"><button class="btn ghost block" data-act="close-overlay">Cerrar</button></div></div>`; }
+    if (o.type === "reject") return `<div class="overlay"><div class="dialog stack"><h2>Rechazar pago</h2><p class="muted">Los números volverán a estar disponibles.</p><textarea id="reason" aria-label="Motivo del rechazo" placeholder="Ej. El monto no coincide">${esc(o.reason || "")}</textarea><div class="err">${esc(o.err || "")}</div><div class="row"><button class="btn ghost" data-act="close-overlay">Cancelar</button><button class="btn danger" data-act="reject-do" data-id="${o.id}">Rechazar</button></div></div></div>`;
+    if (o.type === "draw") return `<div class="overlay"><div class="dialog stack"><h2>¿Ejecutar el sorteo?</h2><p>Esta acción no se puede deshacer.</p><div class="row"><button class="btn ghost" data-act="close-overlay">Cancelar</button><button class="btn" data-act="draw-do">Sortear</button></div></div></div>`;
+    return "";
+  }
+
+  /* ---------- Render ---------- */
+  function render() {
+    const ae = document.activeElement, keep = ae && ae.id && $("#screen").contains(ae) ? { id: ae.id, s: ae.selectionStart, e: ae.selectionEnd } : null;
+    const scrollTop = $("#content") ? $("#content").scrollTop : 0, sameRoute = $("#content") && $("#content").dataset.route === S.route;
+    const r = S.route, tabOf = { home: "home", raffle: "home", pay: "home", done: "mine", mine: "mine", admin: "admin", new: "admin", login: "login" }[r];
+    const tab = (id, icon, label) => `<button data-act="tab" data-t="${id}" ${tabOf === id ? 'aria-current="page"' : ""}>${svg(icon)}${label}</button>`;
+    const cta = r === "raffle" && S.sel.size && selling() ? `<div class="cta"><div class="grow"><b>${S.sel.size} número${S.sel.size > 1 ? "s" : ""}</b><div class="muted num">${money(S.sel.size * PRICE)}</div></div><button class="btn" data-act="to-pay">Continuar al pago</button></div>` : "";
+    $("#screen").innerHTML = `<div class="topbar"><span class="brand">Rifa<i>App</i></span><span class="who">${S.user ? esc(S.user.name) : ""}</span></div>
+      <div class="content" id="content" data-route="${r}">${VIEWS[r]()}</div>${cta}
+      <nav class="tabs" aria-label="Principal">${tab("home", "ticket", "Rifas")}${tab("mine", "receipt", "Mis compras")}${tab("admin", "gear", "Administrar")}${S.user ? `<button data-act="logout">${svg("out")}Salir</button>` : tab("login", "user", "Entrar")}</nav>
+      ${overlayHtml()}${S.toast ? `<div class="toast ${S.toast.bad ? "bad" : ""}" role="status">${esc(S.toast.msg)}</div>` : ""}`;
+    if (sameRoute) $("#content").scrollTop = scrollTop;
+    if (keep) { const el = document.getElementById(keep.id); if (el) { el.focus(); try { el.setSelectionRange(keep.s, keep.e); } catch (_) { /* tipo sin selección */ } } }
+    tick(); renderPanel();
+  }
+  function tick() { document.querySelectorAll("[data-cd]").forEach((el) => { el.textContent = remaining(Number(el.dataset.cd)); }); }
+
+  const STEPS = [["otp", "Entrar con tu celular y el código por WhatsApp"], ["select", "Elegir dos o más números"], ["pay", "Reportar el pago con comprobante"], ["approve", "Como administrador: aprobar el pago"], ["close", "Cerrar ventas y ver el arqueo"], ["draw", "Ejecutar el sorteo"], ["result", "Ver el resultado público como comprador"]];
+  function renderPanel() {
+    $("#steps").innerHTML = STEPS.map(([k, t], i) => `<li class="${S.done[k] ? "done" : ""}"><span class="dot">${S.done[k] ? "✓" : ""}</span><span>${i + 1}. ${t}</span></li>`).join("");
+    $("#role-buyer").setAttribute("aria-pressed", String(!(S.user && S.user.role === "admin")));
+    $("#role-admin").setAttribute("aria-pressed", String(!!(S.user && S.user.role === "admin")));
+    $("#chat").innerHTML = S.notes.length ? S.notes.map((n) => `<div class="bubble"><div class="meta"><span>Para ${esc(n.to)}</span><span class="tpl">${esc(n.tpl)}</span></div>${esc(n.text)}</div>`).join("") : `<div class="none">Aún no se envían mensajes. Los códigos y avisos aparecerán aquí.</div>`;
+  }
+
+  /* ---------- Eventos ---------- */
+  function go(route) { S.route = route; render(); }
+  function otherBuyer() {
+    const free = S.tickets.filter((t) => t.st === "DISPONIBLE"); if (!free.length || !selling()) return toast("No hay números libres o las ventas cerraron", true);
+    const k = Math.min(free.length, 1 + Math.floor(Math.random() * 3)), picks = []; const pool = free.slice();
+    while (picks.length < k) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].n);
+    const name = BUYERS[Math.floor(Math.random() * BUYERS.length)], ref = "NQ-" + (10000 + Math.floor(Math.random() * 89999));
+    picks.forEach((n) => { S.tickets[n].st = "CONGELADO"; S.tickets[n].owner = name; S.sel.delete(n); });
+    S.txs.push({ id: S.nextTx++, buyer: name, phone: "+57 3" + (10 + Math.floor(Math.random() * 89)) + " 555 " + (1000 + Math.floor(Math.random() * 8999)), tickets: picks.sort((a, b) => a - b), platform: "Nequi", ref, amount: picks.length * PRICE, proof: receipt("Nequi", picks.length * PRICE, ref), status: "PENDING", createdAt: clock(), expiresAt: clock() + HOLD_MS });
+    toast(`${name} reservó ${picks.length} número(s)`);
+  }
+
+  $("#screen").addEventListener("click", (e) => {
+    const el = e.target.closest("[data-act]"); if (!el) return;
+    const act = el.dataset.act;
+    if (act === "noop") { e.preventDefault(); return toast("Enlace de la fuente oficial (ejemplo)"); }
+    if (act === "sample-proof") { e.preventDefault(); S.draft.file = receipt("Nequi", S.sel.size * PRICE, S.draft.ref || "NQ-DEMO"); return render(); }
+    if (act === "copy") { try { navigator.clipboard.writeText("3001234567").then(() => toast("Copiado"), () => toast("Número: 300 123 4567")); } catch (_) { toast("Número: 300 123 4567"); } return; }
+    if (act === "tab") { const t = el.dataset.t; return go(t === "home" ? "home" : t === "mine" ? (S.user ? "mine" : "login") : t === "admin" ? "admin" : "login"); }
+    if (act === "open-raffle") { e.preventDefault(); if (S.status === "DRAWN") mark("result"); return go("raffle"); }
+    if (act === "toggle") { const n = Number(el.dataset.n); S.sel.has(n) ? S.sel.delete(n) : S.sel.add(n); if (S.sel.size >= 2) mark("select"); return render(); }
+    if (act === "to-pay") { if (!S.user) { S.next = "pay"; return go("login"); } S.draft.err = ""; return go("pay"); }
+    if (act === "otp-back") { S.otpSent = false; S.draft.err = ""; return render(); }
+    if (act === "go-login") return go("login");
+    if (act === "go-home") return go("home");
+    if (act === "go-mine") return go("mine");
+    if (act === "go-new") return go("new");
+    if (act === "logout") { S.user = null; S.otpSent = false; S.sel.clear(); return go("home"); }
+    if (act === "approve") return approve(Number(el.dataset.id)), render();
+    if (act === "proof") { S.overlay = { type: "proof", id: Number(el.dataset.id) }; return render(); }
+    if (act === "reject-ask") { S.overlay = { type: "reject", id: Number(el.dataset.id) }; return render(); }
+    if (act === "reject-do") {
+      const reason = ($("#reason").value || "").trim(); if (reason.length < 3) { S.overlay.err = "Indica un motivo."; S.overlay.reason = reason; return render(); }
+      const tx = S.txs.find((t) => t.id === Number(el.dataset.id)); if (tx && tx.status === "PENDING") releaseTx(tx, "REJECTED", reason);
+      S.overlay = null; return toast("Pago rechazado · números liberados");
+    }
+    if (act === "close-overlay" || (act === "close-overlay-bg" && e.target === el)) { S.overlay = null; return render(); }
+    if (act === "close") { closeSales(); return render(); }
+    if (act === "draw-ask") { S.overlay = { type: "draw" }; return render(); }
+    if (act === "draw-do") return runDraw();
+  });
+  $("#screen").addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches("a[data-act]")) e.target.click(); });
+  $("#screen").addEventListener("input", (e) => {
+    const t = e.target;
+    if (t.name === "phone") S.draft.phone = t.value; else if (t.name === "code") S.draft.code = t.value; else if (t.name === "name") S.draft.name = t.value;
+    else if (t.name === "ref") S.draft.ref = t.value; else if (t.name === "platform") S.draft.platform = t.value;
+    else if (t.name === "win") S.adminDraw.num = t.value; else if (t.name === "src") S.adminDraw.url = t.value;
+  });
+  $("#screen").addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.name === "method") { S.method = t.value; return render(); }
+    if (t.name === "proof" && t.files[0]) { const f = t.files[0]; if (!f.type.startsWith("image/")) { S.draft.err = "Adjunta una imagen (PNG, JPG o WebP)."; return render(); } const rd = new FileReader(); rd.onload = () => { S.draft.file = rd.result; S.draft.err = ""; render(); }; rd.readAsDataURL(f); }
+  });
+  $("#screen").addEventListener("submit", (e) => {
+    e.preventDefault(); const f = e.target.dataset.form, d = S.draft;
+    if (f === "otp-request") {
+      if (!/^3\d{9}$/.test(d.phone.replace(/\s/g, ""))) { d.err = "Número inválido. Usa un celular de 10 dígitos."; return render(); }
+      S.otpCode = String(Math.floor(100000 + Math.random() * 900000)); S.otpSent = true; d.err = ""; d.code = "";
+      notify("+57 " + d.phone, "OTP", { code: S.otpCode }); return render();
+    }
+    if (f === "otp-verify") {
+      if (d.code.trim() !== S.otpCode) { d.err = "Código incorrecto o vencido."; return render(); }
+      S.user = { name: d.name.trim() || "Beto", role: "buyer", phone: "+57 " + d.phone }; mark("otp"); S.otpSent = false; d.err = "";
+      const next = S.next; S.next = null; toast("Sesión iniciada"); return go(next === "pay" && S.sel.size ? "pay" : "home");
+    }
+    if (f === "pay") {
+      if (!d.ref.trim() && !d.file) { d.err = "Indica el número de transacción o adjunta el comprobante."; return render(); }
+      const picks = selList(); if (!picks.length || picks.some((n) => S.tickets[n].st !== "DISPONIBLE")) { toast("Alguien tomó uno de esos números. Elige otros.", true); S.sel.clear(); return go("raffle"); }
+      picks.forEach((n) => { S.tickets[n].st = "CONGELADO"; S.tickets[n].owner = me(); });
+      const tx = { id: S.nextTx++, buyer: me(), phone: S.user.phone, tickets: picks, platform: ({ NEQUI: "Nequi", DAVIPLATA: "Daviplata", BREVE: "Bre-B", PAYPAL: "PayPal", OTRO: "Otro" })[d.platform], ref: d.ref.trim(), amount: picks.length * PRICE, proof: d.file || receipt("Nequi", picks.length * PRICE, d.ref.trim()), status: "PENDING", createdAt: clock(), expiresAt: clock() + HOLD_MS };
+      S.txs.push(tx); S.lastTx = tx.id; S.sel.clear(); d.ref = ""; d.file = null; d.err = ""; mark("pay"); return go("done");
+    }
+    if (f === "new") return toast("Rifa de ejemplo ya publicada");
+  });
+
+  /* Panel */
+  document.querySelector(".panel").addEventListener("click", (e) => {
+    const el = e.target.closest("[data-panel]"); if (!el) return;
+    const a = el.dataset.panel;
+    if (a === "role-admin") { S.user = { name: "Carolina", role: "admin" }; S.sel.clear(); return go("admin"); }
+    if (a === "role-buyer") { S.user = null; S.otpSent = false; return go("home"); }
+    if (a === "sim-buyer") return otherBuyer(), render();
+    if (a === "sim-time") { skew += HOLD_MS; expireHolds(); toast("Se adelantaron 2 horas: las reservas sin aprobar vencen"); return; }
+    if (a === "sim-reset") { S = fresh(); return render(); }
+  });
+
+  setInterval(() => { if (expireHolds()) { toast("Una reserva venció y sus números se liberaron"); } else tick(); }, 1000);
+  render();
+})();
+</script>
