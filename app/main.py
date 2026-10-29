@@ -7,9 +7,11 @@ from pydantic import BaseModel, Field
 
 from .audit import write_audit
 from .db import get_conn
+from .raffles import router as raffles_router
 from .security import current_user
 
 app = FastAPI(title="SGRS API", version="1.0")
+app.include_router(raffles_router)
 
 
 class ReservationIn(BaseModel):

@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD}
+      POSTGRES_DB: sgrs
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro   # solo corre en BD vacía
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sgrs"]
+      interval: 5s
+      retries: 10
+  api:
+    build: .
+    environment: &env
+      SGRS_DSN: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/sgrs
+      SGRS_JWT_SECRET: ${SGRS_JWT_SECRET:?define SGRS_JWT_SECRET (>=32 bytes)}
+    depends_on: {db: {condition: service_healthy}}
+    ports: ["8000:8000"]
+  worker:
+    build: .
+    command: ["python", "-m", "app.worker"]
+    environment: *env
+    depends_on: {db: {condition: service_healthy}}
+volumes:
+  pgdata:

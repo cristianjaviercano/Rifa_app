@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="defs" targetNamespace="http://sgrs/bpmn">
+<bpmn:collaboration id="collab"><bpmn:participant id="pool" name="SGRS - Ciclo de vida de una rifa" processRef="proc"/></bpmn:collaboration>
+<bpmn:process id="proc" isExecutable="false"><bpmn:laneSet id="ls">
+<bpmn:lane id="lane_C" name="Comprador"><bpmn:flowNodeRef>s0</bpmn:flowNodeRef><bpmn:flowNodeRef>t1</bpmn:flowNodeRef><bpmn:flowNodeRef>t2</bpmn:flowNodeRef><bpmn:flowNodeRef>e1</bpmn:flowNodeRef><bpmn:flowNodeRef>e2</bpmn:flowNodeRef><bpmn:flowNodeRef>e3</bpmn:flowNodeRef></bpmn:lane>
+<bpmn:lane id="lane_S" name="Sistema (API + worker)"><bpmn:flowNodeRef>g1</bpmn:flowNodeRef><bpmn:flowNodeRef>t3</bpmn:flowNodeRef><bpmn:flowNodeRef>t6</bpmn:flowNodeRef><bpmn:flowNodeRef>t5</bpmn:flowNodeRef><bpmn:flowNodeRef>t7</bpmn:flowNodeRef><bpmn:flowNodeRef>s1</bpmn:flowNodeRef><bpmn:flowNodeRef>t9</bpmn:flowNodeRef><bpmn:flowNodeRef>t11</bpmn:flowNodeRef><bpmn:flowNodeRef>g4</bpmn:flowNodeRef><bpmn:flowNodeRef>t13</bpmn:flowNodeRef><bpmn:flowNodeRef>t14</bpmn:flowNodeRef><bpmn:flowNodeRef>e4</bpmn:flowNodeRef></bpmn:lane>
+<bpmn:lane id="lane_A" name="Administrador de rifa"><bpmn:flowNodeRef>t4</bpmn:flowNodeRef><bpmn:flowNodeRef>b1</bpmn:flowNodeRef><bpmn:flowNodeRef>g2</bpmn:flowNodeRef><bpmn:flowNodeRef>t10</bpmn:flowNodeRef><bpmn:flowNodeRef>g3</bpmn:flowNodeRef><bpmn:flowNodeRef>t12</bpmn:flowNodeRef></bpmn:lane>
+</bpmn:laneSet>
+<bpmn:startEvent id="s0" name="Quiere participar"></bpmn:startEvent>
+<bpmn:task id="t1" name="Elegir boletas"><bpmn:documentation>Lee: tickets (DISPONIBLE), ticket_numbers</bpmn:documentation></bpmn:task>
+<bpmn:task id="t2" name="Reportar pago: n.º transacción y/o comprobante"><bpmn:documentation>Escribe: Idempotency-Key, platform, external_ref, proof_url, amount_declared</bpmn:documentation></bpmn:task>
+<bpmn:exclusiveGateway id="g1" name="¿Boletas libres y ventas abiertas?"><bpmn:documentation>Valida: raffles.status/sales_close_at, tickets.status, monto = n x ticket_price, external_ref único</bpmn:documentation></bpmn:exclusiveGateway>
+<bpmn:endEvent id="e1" name="Error 409 / 422 / 423"></bpmn:endEvent>
+<bpmn:task id="t3" name="Congelar boletas (CONGELADO) y fijar expiración"><bpmn:documentation>UPDATE tickets (atómico); INSERT payment_transactions(PENDING), transaction_tickets, audit_log</bpmn:documentation></bpmn:task>
+<bpmn:task id="t4" name="Revisar comprobante"><bpmn:documentation>Lee: payment_transactions PENDING, proof_url (URL firmada)</bpmn:documentation></bpmn:task>
+<bpmn:boundaryEvent id="b1" name="Vence hold_minutes" attachedToRef="t4" cancelActivity="true"><bpmn:documentation>expire_holds(): PENDING vencidas -&gt; EXPIRED</bpmn:documentation><bpmn:timerEventDefinition/></bpmn:boundaryEvent>
+<bpmn:exclusiveGateway id="g2" name="¿Pago legítimo?"><bpmn:documentation>POST approve / reject</bpmn:documentation></bpmn:exclusiveGateway>
+<bpmn:task id="t6" name="Liberar boletas (DISPONIBLE)"><bpmn:documentation>UPDATE tickets; payment_transactions REJECTED/EXPIRED; audit_log</bpmn:documentation></bpmn:task>
+<bpmn:endEvent id="e2" name="Boletas disponibles de nuevo"></bpmn:endEvent>
+<bpmn:task id="t5" name="Aprobar: boletas PAGADO + encolar notificación"><bpmn:documentation>UPDATE tickets, payment_transactions(APPROVED); INSERT notifications (outbox), audit_log</bpmn:documentation></bpmn:task>
+<bpmn:task id="t7" name="Enviar WhatsApp: pago confirmado"><bpmn:documentation>Worker lee notifications QUEUED</bpmn:documentation></bpmn:task>
+<bpmn:endEvent id="e3" name="Comprador notificado"></bpmn:endEvent>
+<bpmn:startEvent id="s1" name="fecha_cierre_ventas"><bpmn:documentation>auto_close(): raffles OPEN con sales_close_at &lt;= now()</bpmn:documentation><bpmn:timerEventDefinition/></bpmn:startEvent>
+<bpmn:task id="t9" name="Bloquear ventas y emitir arqueo contable"><bpmn:documentation>INSERT accounting_closures (vendidos, validado, pendiente, hash); raffles CLOSED</bpmn:documentation></bpmn:task>
+<bpmn:task id="t10" name="Resolver transacciones pendientes"><bpmn:documentation>Requisito del sorteo: 0 payment_transactions PENDING</bpmn:documentation></bpmn:task>
+<bpmn:exclusiveGateway id="g3" name="¿Método de sorteo?"><bpmn:documentation>raffles.draw_method</bpmn:documentation></bpmn:exclusiveGateway>
+<bpmn:task id="t11" name="Interno: CSPRNG elige entre números vendidos"><bpmn:documentation>secrets.randbelow sobre ticket_numbers de boletas PAGADO</bpmn:documentation></bpmn:task>
+<bpmn:task id="t12" name="Externo: ingresar n.º oficial + URL de comprobación"><bpmn:documentation>POST draw {winning_number, source_url}</bpmn:documentation></bpmn:task>
+<bpmn:exclusiveGateway id="g4" name=""></bpmn:exclusiveGateway>
+<bpmn:task id="t13" name="Asignar premios (principal y secos ±offset)"><bpmn:documentation>INSERT draws, winners; tickets GANADOR; raffles DRAWN; audit_log</bpmn:documentation></bpmn:task>
+<bpmn:task id="t14" name="Notificar ganadores y al resto"><bpmn:documentation>INSERT notifications WINNER / DRAW_FINISHED</bpmn:documentation></bpmn:task>
+<bpmn:endEvent id="e4" name="Sorteo concluido"></bpmn:endEvent>
+<bpmn:sequenceFlow id="f0" sourceRef="s0" targetRef="t1"/>
+<bpmn:sequenceFlow id="f1" sourceRef="t1" targetRef="t2"/>
+<bpmn:sequenceFlow id="f2" sourceRef="t2" targetRef="g1"/>
+<bpmn:sequenceFlow id="f3" sourceRef="g1" targetRef="e1" name="No"/>
+<bpmn:sequenceFlow id="f4" sourceRef="g1" targetRef="t3" name="Sí"/>
+<bpmn:sequenceFlow id="f5" sourceRef="t3" targetRef="t4"/>
+<bpmn:sequenceFlow id="f6" sourceRef="t4" targetRef="g2"/>
+<bpmn:sequenceFlow id="f7" sourceRef="b1" targetRef="t6" name="Tiempo agotado"/>
+<bpmn:sequenceFlow id="f8" sourceRef="g2" targetRef="t6" name="No"/>
+<bpmn:sequenceFlow id="f9" sourceRef="g2" targetRef="t5" name="Sí"/>
+<bpmn:sequenceFlow id="f10" sourceRef="t6" targetRef="e2"/>
+<bpmn:sequenceFlow id="f11" sourceRef="t5" targetRef="t7"/>
+<bpmn:sequenceFlow id="f12" sourceRef="t7" targetRef="e3"/>
+<bpmn:sequenceFlow id="f13" sourceRef="s1" targetRef="t9"/>
+<bpmn:sequenceFlow id="f14" sourceRef="t9" targetRef="t10"/>
+<bpmn:sequenceFlow id="f15" sourceRef="t10" targetRef="g3"/>
+<bpmn:sequenceFlow id="f16" sourceRef="g3" targetRef="t11" name="Interno"/>
+<bpmn:sequenceFlow id="f17" sourceRef="g3" targetRef="t12" name="Externo"/>
+<bpmn:sequenceFlow id="f18" sourceRef="t11" targetRef="g4"/>
+<bpmn:sequenceFlow id="f19" sourceRef="t12" targetRef="g4"/>
+<bpmn:sequenceFlow id="f20" sourceRef="g4" targetRef="t13"/>
+<bpmn:sequenceFlow id="f21" sourceRef="t13" targetRef="t14"/>
+<bpmn:sequenceFlow id="f22" sourceRef="t14" targetRef="e4"/>
+</bpmn:process><bpmndi:BPMNDiagram id="d"><bpmndi:BPMNPlane id="pl" bpmnElement="collab">
+<bpmndi:BPMNShape id="sh_pool" bpmnElement="pool" isHorizontal="true"><dc:Bounds x="30" y="0" width="3490" height="570"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_lane_C" bpmnElement="lane_C" isHorizontal="true"><dc:Bounds x="60" y="0" width="3460" height="190"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_lane_S" bpmnElement="lane_S" isHorizontal="true"><dc:Bounds x="60" y="190" width="3460" height="190"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_lane_A" bpmnElement="lane_A" isHorizontal="true"><dc:Bounds x="60" y="380" width="3460" height="190"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_s0" bpmnElement="s0"><dc:Bounds x="157" y="77" width="36" height="36"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t1" bpmnElement="t1"><dc:Bounds x="280" y="60" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t2" bpmnElement="t2"><dc:Bounds x="450" y="60" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_g1" bpmnElement="g1" isMarkerVisible="true"><dc:Bounds x="660" y="260" width="50" height="50"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_e1" bpmnElement="e1"><dc:Bounds x="837" y="77" width="36" height="36"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t3" bpmnElement="t3"><dc:Bounds x="790" y="250" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t4" bpmnElement="t4"><dc:Bounds x="960" y="440" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_b1" bpmnElement="b1"><dc:Bounds x="1047" y="492" width="36" height="36"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_g2" bpmnElement="g2" isMarkerVisible="true"><dc:Bounds x="1170" y="450" width="50" height="50"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t6" bpmnElement="t6"><dc:Bounds x="1130" y="250" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_e2" bpmnElement="e2"><dc:Bounds x="1347" y="77" width="36" height="36"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t5" bpmnElement="t5"><dc:Bounds x="1300" y="250" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t7" bpmnElement="t7"><dc:Bounds x="1470" y="250" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_e3" bpmnElement="e3"><dc:Bounds x="1687" y="77" width="36" height="36"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_s1" bpmnElement="s1"><dc:Bounds x="2027" y="267" width="36" height="36"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t9" bpmnElement="t9"><dc:Bounds x="2150" y="250" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t10" bpmnElement="t10"><dc:Bounds x="2320" y="440" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_g3" bpmnElement="g3" isMarkerVisible="true"><dc:Bounds x="2530" y="450" width="50" height="50"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t11" bpmnElement="t11"><dc:Bounds x="2660" y="250" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t12" bpmnElement="t12"><dc:Bounds x="2660" y="440" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_g4" bpmnElement="g4" isMarkerVisible="true"><dc:Bounds x="2870" y="260" width="50" height="50"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t13" bpmnElement="t13"><dc:Bounds x="3000" y="250" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_t14" bpmnElement="t14"><dc:Bounds x="3170" y="250" width="130" height="70"/></bpmndi:BPMNShape>
+<bpmndi:BPMNShape id="sh_e4" bpmnElement="e4"><dc:Bounds x="3387" y="267" width="36" height="36"/></bpmndi:BPMNShape>
+<bpmndi:BPMNEdge id="e_f0" bpmnElement="f0"><di:waypoint x="193" y="95"/><di:waypoint x="236" y="95"/><di:waypoint x="236" y="95"/><di:waypoint x="280" y="95"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f1" bpmnElement="f1"><di:waypoint x="410" y="95"/><di:waypoint x="430" y="95"/><di:waypoint x="430" y="95"/><di:waypoint x="450" y="95"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f2" bpmnElement="f2"><di:waypoint x="580" y="95"/><di:waypoint x="620" y="95"/><di:waypoint x="620" y="285"/><di:waypoint x="660" y="285"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f3" bpmnElement="f3"><di:waypoint x="710" y="285"/><di:waypoint x="773" y="285"/><di:waypoint x="773" y="95"/><di:waypoint x="837" y="95"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f4" bpmnElement="f4"><di:waypoint x="710" y="285"/><di:waypoint x="750" y="285"/><di:waypoint x="750" y="285"/><di:waypoint x="790" y="285"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f5" bpmnElement="f5"><di:waypoint x="920" y="285"/><di:waypoint x="940" y="285"/><di:waypoint x="940" y="475"/><di:waypoint x="960" y="475"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f6" bpmnElement="f6"><di:waypoint x="1090" y="475"/><di:waypoint x="1130" y="475"/><di:waypoint x="1130" y="475"/><di:waypoint x="1170" y="475"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f7" bpmnElement="f7"><di:waypoint x="1083" y="510"/><di:waypoint x="1106" y="510"/><di:waypoint x="1106" y="285"/><di:waypoint x="1130" y="285"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f8" bpmnElement="f8"><di:waypoint x="1195" y="450"/><di:waypoint x="1195" y="320"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f9" bpmnElement="f9"><di:waypoint x="1220" y="475"/><di:waypoint x="1260" y="475"/><di:waypoint x="1260" y="285"/><di:waypoint x="1300" y="285"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f10" bpmnElement="f10"><di:waypoint x="1260" y="285"/><di:waypoint x="1303" y="285"/><di:waypoint x="1303" y="95"/><di:waypoint x="1347" y="95"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f11" bpmnElement="f11"><di:waypoint x="1430" y="285"/><di:waypoint x="1450" y="285"/><di:waypoint x="1450" y="285"/><di:waypoint x="1470" y="285"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f12" bpmnElement="f12"><di:waypoint x="1600" y="285"/><di:waypoint x="1643" y="285"/><di:waypoint x="1643" y="95"/><di:waypoint x="1687" y="95"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f13" bpmnElement="f13"><di:waypoint x="2063" y="285"/><di:waypoint x="2106" y="285"/><di:waypoint x="2106" y="285"/><di:waypoint x="2150" y="285"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f14" bpmnElement="f14"><di:waypoint x="2280" y="285"/><di:waypoint x="2300" y="285"/><di:waypoint x="2300" y="475"/><di:waypoint x="2320" y="475"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f15" bpmnElement="f15"><di:waypoint x="2450" y="475"/><di:waypoint x="2490" y="475"/><di:waypoint x="2490" y="475"/><di:waypoint x="2530" y="475"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f16" bpmnElement="f16"><di:waypoint x="2580" y="475"/><di:waypoint x="2620" y="475"/><di:waypoint x="2620" y="285"/><di:waypoint x="2660" y="285"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f17" bpmnElement="f17"><di:waypoint x="2580" y="475"/><di:waypoint x="2620" y="475"/><di:waypoint x="2620" y="475"/><di:waypoint x="2660" y="475"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f18" bpmnElement="f18"><di:waypoint x="2790" y="285"/><di:waypoint x="2830" y="285"/><di:waypoint x="2830" y="285"/><di:waypoint x="2870" y="285"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f19" bpmnElement="f19"><di:waypoint x="2790" y="475"/><di:waypoint x="2830" y="475"/><di:waypoint x="2830" y="285"/><di:waypoint x="2870" y="285"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f20" bpmnElement="f20"><di:waypoint x="2920" y="285"/><di:waypoint x="2960" y="285"/><di:waypoint x="2960" y="285"/><di:waypoint x="3000" y="285"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f21" bpmnElement="f21"><di:waypoint x="3130" y="285"/><di:waypoint x="3150" y="285"/><di:waypoint x="3150" y="285"/><di:waypoint x="3170" y="285"/></bpmndi:BPMNEdge>
+<bpmndi:BPMNEdge id="e_f22" bpmnElement="f22"><di:waypoint x="3300" y="285"/><di:waypoint x="3343" y="285"/><di:waypoint x="3343" y="285"/><di:waypoint x="3387" y="285"/></bpmndi:BPMNEdge>
+</bpmndi:BPMNPlane></bpmndi:BPMNDiagram></bpmn:definitions>

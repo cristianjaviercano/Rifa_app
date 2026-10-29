@@ -9,6 +9,16 @@ os.environ["SGRS_DSN"] = f"postgresql://postgres@127.0.0.1:{PORT}/sgrs"
 
 @pytest.fixture(scope="session")
 def pg():
+    ext = os.environ.get("SGRS_TEST_DSN")  # CI: PostgreSQL ya provisto
+    if ext:
+        os.environ["SGRS_DSN"] = ext
+        import app.db
+        app.db.DSN = ext
+        with psycopg.connect(ext, autocommit=True) as c:
+            c.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public")
+            c.execute(open(os.path.join(os.path.dirname(__file__), "..", "schema.sql")).read())
+        yield ext
+        return
     d = tempfile.mkdtemp()
     run = lambda *a: subprocess.run(["su", "nobody", "-s", "/bin/bash", "-c", " ".join(a)], check=True, capture_output=True)
     subprocess.run(["chown", "nobody", d], check=True)
