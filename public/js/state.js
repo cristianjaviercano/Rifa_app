@@ -1,6 +1,6 @@
 import { api, auth } from "./api.js";
 
-export const state = { user: null, next: null, selection: new Map(), config: { beta: false, otp_on_screen: false } };
+export const state = { user: null, next: null, selection: new Map(), referrer: null, config: { beta: false, otp_on_screen: false } };
 
 export async function loadUser() {
   if (!auth.token) { state.user = null; return null; }

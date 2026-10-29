@@ -85,6 +85,13 @@ JavaScript puro con módulos ES, sin build ni dependencias: la API la sirve desd
 
 Seguridad del cliente: todo texto entra por nodos DOM (nunca `innerHTML`), CSP `default-src 'self'` sin scripts ni estilos en línea, token en `localStorage` (vigencia 8 h, `SGRS_TOKEN_TTL`).
 
+## Compartir y crecimiento
+
+- `GET /r/{id}`: página con etiquetas Open Graph y Twitter Card (los rastreadores de WhatsApp, Facebook, LinkedIn, X y Telegram no ejecutan JavaScript ni leen el `#`) que redirige a `/#/r/{id}`.
+- `GET /r/{id}/og.png`: tarjeta 1200×630 generada con título, precio y avance de ventas (fuente DejaVu incluida; no usa nada del sistema).
+- El administrador ve su enlace, botón *Copiar* y destinos (WhatsApp, Facebook, LinkedIn, X, Telegram, correo y el menú nativo del teléfono, que cubre Instagram). Cualquier visitante también puede compartir.
+- Al pie de la portada: «¿Quieres hacer tu propia rifa?». Quien entra por ahí inicia sesión y llega al formulario; la rifa nueva guarda `referrer_raffle_id` para medir el alcance de cada enlace.
+
 ## Notificaciones
 
 WhatsApp Business (Cloud API) con plantillas, cola transaccional, reintentos, recordatorio 24 h antes del sorteo, webhook de estados y baja voluntaria. Detalle y puesta en marcha en [`WHATSAPP.md`](WHATSAPP.md).

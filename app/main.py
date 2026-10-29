@@ -15,6 +15,7 @@ from .uploads import router as uploads_router
 from .webhooks import router as webhooks_router
 from .views import router as views_router
 from .security import current_user
+from .share import router as share_router
 
 app = FastAPI(title="SGRS API", version="1.0")
 app.include_router(raffles_router)
@@ -23,6 +24,7 @@ app.include_router(uploads_router)
 app.include_router(views_router)
 app.include_router(webhooks_router)
 app.include_router(ops_router)
+app.include_router(share_router)
 
 
 class ReservationIn(BaseModel):

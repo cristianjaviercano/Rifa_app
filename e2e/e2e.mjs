@@ -58,6 +58,21 @@ const rid = A.url().split("/").pop();
 check(sql(`select status from raffles where id='${rid}'`) === "OPEN", "rifa creada y publicada desde la UI");
 check(sql(`select count(*) from tickets where raffle_id='${rid}'`) === "20", "20 boletas generadas");
 await A.screenshot({ path: `${OUT}/01-admin-rifa.png` });
+// 1b. Compartir: tarjeta, diálogo y enlaces de redes
+await A.waitForSelector("#share-card");
+await A.click("#share-open");
+await A.waitForSelector("#share-url");
+const link = await A.inputValue("#share-url");
+check(link.endsWith(`/r/${rid}`), "enlace público de la rifa generado");
+const wa = await A.locator("dialog a:has-text('WhatsApp')").getAttribute("href");
+check(wa.startsWith("https://wa.me/?text=") && decodeURIComponent(wa).includes(link), "botón de WhatsApp incluye el enlace");
+for (const n of ["Facebook", "LinkedIn", "X", "Telegram", "Correo"]) check(await A.locator(`dialog a:has-text('${n}')`).count() === 1, "destino " + n);
+await A.screenshot({ path: `${OUT}/01b-compartir.png` });
+await A.click("dialog button:has-text('Cerrar')");
+const og = await (await A.request.get(link)).text();
+check(og.includes('property="og:title" content="Rifa E2E') && og.includes("/og.png"), "la página del enlace trae etiquetas Open Graph");
+const png = await A.request.get(link + "/og.png");
+check(png.headers()["content-type"] === "image/png", "tarjeta de imagen para redes");
 
 // 2. Comprador: inicia sesión, elige 2 boletas, paga con referencia + comprobante
 await login(B, "+573002220002", "Beto");
@@ -83,6 +98,19 @@ const anon = await newUser("anon");
 await anon.page.goto(BASE + `/#/r/${rid}`);
 await anon.page.waitForSelector("#t-3");
 check(await anon.page.locator("#t-3").isDisabled(), "boleta reservada no se puede elegir");
+// 3b. Invitado desde un enlace: pie "crea tu propia rifa" -> registro -> formulario de nueva rifa
+await anon.page.locator("#own-raffle").scrollIntoViewIfNeeded();
+await anon.page.screenshot({ path: `${OUT}/03b-pie-crea-tu-rifa.png` });
+await anon.page.click("#own-raffle-cta");
+await anon.page.waitForURL(/#\/login/);
+await login(anon.page, "+573003330003", "Nuevo");
+await anon.page.waitForSelector("h1:has-text('Nueva rifa')");
+check(true, "el visitante entra como nuevo organizador y llega a crear su rifa");
+await anon.page.fill("#title", "Rifa hija"); await anon.page.fill("#terms", "t");
+await anon.page.fill("input[aria-label='Descripción']", "Premio");
+await anon.page.click("#save-draft");
+await anon.page.waitForURL(/#\/admin\/r\//);
+check(sql(`select count(*) from raffles where title='Rifa hija' and referrer_raffle_id='${rid}'`) === "1", "la nueva rifa queda ligada a la rifa de origen");
 await anon.ctx.close();
 
 // 4. Administrador revisa el comprobante y aprueba

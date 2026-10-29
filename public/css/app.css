@@ -146,3 +146,9 @@ details.card { padding: 10px var(--gap); }
 details.card > summary { min-height: 28px; display: flex; align-items: center; }
 
 .beta { background: var(--warn-bg); color: var(--warn); text-align: center; font-size: .8rem; font-weight: 700; padding: 6px 12px; }
+
+.share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.share-grid a { text-decoration: none; }
+.link-text { overflow-wrap: anywhere; font-size: .85rem; min-width: 0; }
+.own-raffle { margin: 40px 0 8px; padding-top: 18px; border-top: 1px solid var(--line); text-align: center; padding-bottom: 80px; }
+.own-raffle h2 { font-size: .95rem; }

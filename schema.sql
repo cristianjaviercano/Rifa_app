@@ -34,6 +34,7 @@ CREATE TABLE raffles (
   lottery_name text,
   hold_minutes int NOT NULL DEFAULT 120 CHECK (hold_minutes > 0),
   payment_accounts jsonb NOT NULL DEFAULT '{}',
+  referrer_raffle_id uuid REFERENCES raffles(id),  -- rifa desde cuyo enlace nació esta (crecimiento viral)
   status raffle_status NOT NULL DEFAULT 'DRAFT',
   created_at timestamptz NOT NULL DEFAULT now(),
   CHECK (sales_close_at < draw_at),

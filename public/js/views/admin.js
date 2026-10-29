@@ -2,6 +2,7 @@ import { h, money, fmtDate, chip, toast, modal, liveCountdown, padNum, skeleton 
 import { api } from "../api.js";
 import { state } from "../state.js";
 import { STATUS, raffleCard } from "./home.js";
+import { shareDialog, raffleLink, copyText } from "../share.js";
 
 const guard = (ctx, path) => {
   if (state.user) return true;
@@ -52,7 +53,7 @@ export async function adminNewView(_, ctx) {
       numbers_per_ticket: Number(f.per.value), ticket_price: Number(f.price.value),
       sales_close_at: f.close.value && toIso(f.close.value), draw_at: f.draw.value && toIso(f.draw.value),
       draw_method: method.value, lottery_name: method.value === "EXTERNAL_LOTTERY" ? f.lottery.value.trim() : null,
-      hold_minutes: Number(f.hold.value), prizes,
+      hold_minutes: Number(f.hold.value), prizes, referrer_raffle_id: state.referrer || null,
       payment_accounts: Object.fromEntries(accounts.filter(([, i]) => i.value.trim()).map(([n, i]) => [n, i.value.trim()])),
     };
     if (!body.title || !body.terms_md || !prizes.length) { err.textContent = "Completa título, términos y al menos un premio."; return; }
@@ -61,6 +62,7 @@ export async function adminNewView(_, ctx) {
     try {
       const r = await api.post("/raffles", body);
       if (publish) await api.post(`/raffles/${r.id}/publish`);
+      state.referrer = null;
       toast(publish ? "Rifa publicada" : "Borrador guardado");
       ctx.go(`/admin/r/${r.id}`);
     } catch (x) { err.textContent = x.message === `Error ${x.status}` || x.code === "VALIDATION" ? "Revisa los datos del formulario." : x.message; }
@@ -105,6 +107,12 @@ export async function adminRaffleView([rid], ctx) {
         h("dt", null, "Cierre de ventas"), h("dd", null, fmtDate(r.sales_close_at)),
         h("dt", null, "Sorteo"), h("dd", null, fmtDate(r.draw_at))),
         h("p", null, h("a", { href: `#/r/${rid}` }, "Ver como comprador →")))];
+
+    if (r.status !== "DRAFT") parts.push(h("div", { class: "card stack", id: "share-card" },
+      h("h2", null, "Comparte tu rifa"),
+      h("p", { class: "muted" }, "Publícala en WhatsApp, LinkedIn, Instagram y más. El enlace lleva a la portada con la selección de números."),
+      h("div", { class: "row" }, h("span", { class: "num link-text" }, raffleLink(rid)), h("button", { class: "btn ghost small", type: "button", onclick: () => copyText(raffleLink(rid)) }, "Copiar")),
+      h("button", { class: "btn block", type: "button", id: "share-open", onclick: () => shareDialog(r, rid) }, "Elegir dónde compartir")));
 
     if (r.status === "DRAFT") parts.push(h("button", { class: "btn block", id: "publish", onclick: async () => {
       try { await api.post(`/raffles/${rid}/publish`); toast("Rifa publicada"); paint(); } catch (x) { toast(x.message, "bad"); } } }, "Publicar rifa"));
