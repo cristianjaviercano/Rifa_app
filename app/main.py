@@ -7,18 +7,22 @@ from pydantic import BaseModel, Field
 
 from .audit import write_audit
 from .db import get_conn
+from .auth import router as auth_router
 from .raffles import router as raffles_router
+from .uploads import router as uploads_router
 from .security import current_user
 
 app = FastAPI(title="SGRS API", version="1.0")
 app.include_router(raffles_router)
+app.include_router(auth_router)
+app.include_router(uploads_router)
 
 
 class ReservationIn(BaseModel):
     ticket_ids: list[UUID] = Field(min_length=1, max_length=50)
     platform: str
     external_ref: Optional[str] = Field(default=None, max_length=64)
-    proof_url: Optional[str] = None
+    proof_id: Optional[UUID] = None
     amount_declared: Decimal
 
 
@@ -55,12 +59,24 @@ def reserve(raffle_id: UUID, body: ReservationIn, user=Depends(current_user),
         raise _err(423, "SALES_CLOSED")
     if body.platform not in ("NEQUI", "DAVIPLATA", "BREVE", "PAYPAL", "OTRO"):
         raise _err(422, "PLATFORM_INVALID")
-    if not (body.external_ref or body.proof_url):
+    if not (body.external_ref or body.proof_id):
         raise _err(422, "PROOF_REQUIRED")
     ids = list(dict.fromkeys(body.ticket_ids))
     expected = raffle["ticket_price"] * len(ids)
     if body.amount_declared != expected:
         raise _err(422, "AMOUNT_MISMATCH", expected=str(expected))
+
+    proof = None
+    if body.proof_id:
+        proof = conn.execute("SELECT * FROM proofs WHERE id=%s AND uploader_id=%s",
+                             (body.proof_id, user["id"])).fetchone()
+        if not proof:
+            raise _err(422, "PROOF_NOT_FOUND")
+        if conn.execute(  # el mismo archivo no puede respaldar dos pagos activos de la misma rifa
+                "SELECT 1 FROM payment_transactions pt JOIN proofs p ON p.id=pt.proof_id"
+                " WHERE pt.raffle_id=%s AND p.sha256=%s AND pt.status IN ('PENDING','APPROVED')",
+                (raffle_id, proof["sha256"])).fetchone():
+            raise _err(409, "DUPLICATE_PROOF")
 
     if body.external_ref and conn.execute(
             "SELECT 1 FROM payment_transactions WHERE raffle_id=%s AND platform=%s AND external_ref=%s"
@@ -80,10 +96,11 @@ def reserve(raffle_id: UUID, body: ReservationIn, user=Depends(current_user),
         raise _err(409, "TICKET_UNAVAILABLE", conflicts=[str(i) for i in ids if i not in got])
 
     tx = conn.execute(
-        "INSERT INTO payment_transactions (raffle_id,buyer_id,platform,external_ref,proof_url,"
+        "INSERT INTO payment_transactions (raffle_id,buyer_id,platform,external_ref,proof_id,proof_sha256,"
         " amount_declared,expires_at,idempotency_key)"
-        " VALUES (%s,%s,%s,%s,%s,%s, now() + make_interval(mins => %s), %s) RETURNING *",
-        (raffle_id, user["id"], body.platform, body.external_ref, body.proof_url,
+        " VALUES (%s,%s,%s,%s,%s,%s,%s, now() + make_interval(mins => %s), %s) RETURNING *",
+        (raffle_id, user["id"], body.platform, body.external_ref,
+         proof["id"] if proof else None, proof["sha256"] if proof else None,
          body.amount_declared, raffle["hold_minutes"], idempotency_key)).fetchone()
     conn.cursor().executemany(
         "INSERT INTO transaction_tickets VALUES (%s,%s,%s)",

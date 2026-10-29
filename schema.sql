@@ -72,13 +72,23 @@ CREATE TABLE ticket_numbers (
   PRIMARY KEY (raffle_id, number)
 );
 
+-- Comprobantes de pago (el binario vive en el almacenamiento; aquí solo metadatos)
+CREATE TABLE proofs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  uploader_id uuid NOT NULL REFERENCES users(id),
+  sha256 text NOT NULL,
+  mime text NOT NULL,
+  size int NOT NULL,
+  storage_key text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE TABLE payment_transactions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   raffle_id uuid NOT NULL REFERENCES raffles(id),
   buyer_id uuid NOT NULL REFERENCES users(id),
   platform pay_platform NOT NULL,
   external_ref text,
-  proof_url text,
+  proof_id uuid REFERENCES proofs(id),
   proof_sha256 text,
   amount_declared numeric(12,2) NOT NULL,
   status tx_status NOT NULL DEFAULT 'PENDING',
@@ -89,7 +99,7 @@ CREATE TABLE payment_transactions (
   idempotency_key text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (buyer_id, idempotency_key),
-  CHECK (external_ref IS NOT NULL OR proof_url IS NOT NULL)
+  CHECK (external_ref IS NOT NULL OR proof_id IS NOT NULL)
 );
 CREATE UNIQUE INDEX tx_ref_active_uq ON payment_transactions (raffle_id, platform, external_ref)
   WHERE status IN ('PENDING','APPROVED') AND external_ref IS NOT NULL;
@@ -146,3 +156,16 @@ CREATE FUNCTION audit_immutable() RETURNS trigger LANGUAGE plpgsql AS
 $$ BEGIN RAISE EXCEPTION 'audit_log es append-only'; END $$;
 CREATE TRIGGER audit_no_mutation BEFORE UPDATE OR DELETE ON audit_log
   FOR EACH ROW EXECUTE FUNCTION audit_immutable();
+
+-- Login por OTP (el código nunca se guarda en claro)
+CREATE TABLE otp_codes (
+  id bigserial PRIMARY KEY,
+  phone_e164 text NOT NULL,
+  code_hash text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  attempts int NOT NULL DEFAULT 0,
+  consumed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX otp_phone_idx ON otp_codes (phone_e164, created_at DESC);
+

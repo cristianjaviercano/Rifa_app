@@ -63,16 +63,20 @@ docker compose --env-file .env up --build
 ## Pruebas rápidas
 
 ```bash
-python -m pytest -q                       # 15 pruebas, incluida concurrencia
+python -m pytest -q                       # 21 pruebas, incluida concurrencia
 SGRS_DSN=postgresql://... python -m scripts.simulate --buyers 40 --seed 7 --method EXTERNAL_LOTTERY
 ```
 `scripts/simulate.py` ejecuta un sorteo ficticio completo contra la API real y comprueba invariantes (sin boletas CONGELADO al sortear, recaudo = boletas × precio, cadena de auditoría íntegra).
 
+## Seguridad implementada
+
+- **Login OTP** (`/auth/otp/request|verify`): código de 6 dígitos (CSPRNG) guardado como HMAC, vigencia 5 min, un solo uso, máx. 5 intentos, reenvío cada 60 s. El teléfono queda verificado y se emite el JWT.
+- **Comprobantes** (`PUT /uploads/proof`, `GET /proofs/{id}`): tipo detectado por bytes (PNG, JPEG, WebP, PDF), máx. 5 MB, nombre = SHA-256. Solo los ve quien lo subió, el administrador de la rifa que recibió el pago o un SUPERUSER. Un mismo archivo no respalda dos pagos activos de la misma rifa (`409 DUPLICATE_PROOF`).
+
 ## Pendiente antes de producción
 
-1. Login por OTP/SMS (hoy el JWT se emite sin verificación de teléfono).
-2. Subida de comprobantes a almacenamiento privado con URL firmada (hoy `proof_url` es texto libre).
-3. Envío real de WhatsApp/Twilio desde `notifications` (hoy solo se encolan) y recordatorio de `draw_at`.
-4. Migraciones (Alembic) en lugar de `schema.sql` inicial, TLS en el proxy inverso, backups de PostgreSQL y límite de tasa.
-5. Frontend PWA.
-6. Docker y el job de CI no se ejecutaron en este entorno; solo las pruebas locales.
+1. Proveedor real de SMS/WhatsApp: hoy `app/sms.py` solo registra el mensaje; y envío de la cola `notifications` más recordatorio de `draw_at`.
+2. Almacenamiento de comprobantes en objeto (S3/GCS, cifrado en reposo): hoy es disco local (`app/storage.py` es la única pieza a reemplazar).
+3. Migraciones (Alembic) en lugar de `schema.sql` inicial, TLS en el proxy inverso, backups de PostgreSQL y límite de tasa por IP.
+4. Frontend PWA.
+5. Docker y el job de CI no se ejecutaron en este entorno; solo las pruebas locales.
