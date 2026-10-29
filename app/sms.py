@@ -12,6 +12,14 @@ class DeliveryError(Exception):
     pass
 
 
+def echo_allowed() -> bool:
+    """El código en pantalla solo se permite en beta: sin WhatsApp real y, en producción, con clave de
+    invitación (sin ella cualquiera podría iniciar sesión con el número de otra persona)."""
+    if os.environ.get("SGRS_DEV_ECHO_OTP") != "1" or whatsapp.config():
+        return False
+    return os.environ.get("SGRS_ENV") != "production" or bool(os.environ.get("SGRS_BETA_KEY"))
+
+
 def send_otp(phone: str, code: str) -> None:
     if whatsapp.config():
         res = whatsapp.send_otp_code(phone, code)
@@ -19,7 +27,7 @@ def send_otp(phone: str, code: str) -> None:
             log.error("OTP no enviado a %s: %s", phone[:-4] + "****", res.error)
             raise DeliveryError(res.error)
         return
-    if os.environ.get("SGRS_DEV_ECHO_OTP") == "1":  # beta: el código viaja en la respuesta, no por mensajería
+    if echo_allowed():  # beta: el código viaja en la respuesta, no por mensajería
         return
     if os.environ.get("SGRS_ENV") == "production":
         raise DeliveryError("proveedor de mensajería no configurado")

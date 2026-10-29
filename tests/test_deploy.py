@@ -43,9 +43,21 @@ def test_code_never_echoed_when_whatsapp_configured(monkeypatch):
 def test_beta_in_production_without_whatsapp(monkeypatch):
     monkeypatch.setenv("SGRS_ENV", "production")
     monkeypatch.setenv("SGRS_DEV_ECHO_OTP", "1")
+    monkeypatch.setenv("SGRS_BETA_KEY", "clave-beta-123")
     monkeypatch.delenv("WHATSAPP_TOKEN", raising=False)
-    r = client.post("/api/v1/auth/otp/request", json={"phone": phone()})
+    r = client.post("/api/v1/auth/otp/request", json={"phone": phone(), "invite": "clave-beta-123"})
     assert r.status_code == 202 and "dev_code" in r.json()
+
+
+def test_code_on_screen_requires_beta_key_in_production(monkeypatch):
+    """Sin clave de invitación, el código en pantalla permitiría tomar la cuenta de cualquier número."""
+    monkeypatch.setenv("SGRS_ENV", "production")
+    monkeypatch.setenv("SGRS_DEV_ECHO_OTP", "1")
+    monkeypatch.delenv("SGRS_BETA_KEY", raising=False)
+    monkeypatch.delenv("WHATSAPP_TOKEN", raising=False)
+    assert client.get("/api/v1/auth/config").json() == {"beta": False, "otp_on_screen": False}
+    r = client.post("/api/v1/auth/otp/request", json={"phone": phone()})
+    assert r.status_code == 502 and "dev_code" not in r.text
 
 
 def test_storage_in_database(db, monkeypatch, tmp_path, mkuser):

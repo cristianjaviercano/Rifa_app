@@ -35,7 +35,7 @@ class OtpVerify(BaseModel):
 
 def _echo() -> bool:
     """El código se muestra en pantalla solo en beta y mientras no haya WhatsApp real configurado."""
-    return os.environ.get("SGRS_DEV_ECHO_OTP") == "1" and whatsapp.config() is None
+    return sms.echo_allowed()
 
 
 @router.get("/config")
