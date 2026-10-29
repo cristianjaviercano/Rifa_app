@@ -1,6 +1,7 @@
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
+from tests.conftest import dsn
 import psycopg
 from fastapi.testclient import TestClient
 
@@ -78,7 +79,7 @@ def test_expiry(db, raffle, mkuser):
     tid = client.post(f"/api/v1/raffles/{r['id']}/reservations", json=body(r["tickets"][:1]), headers=H(b)).json()["transaction_id"]
     db.execute("UPDATE payment_transactions SET expires_at = now() - interval '1 minute' WHERE id=%s", (tid,))
     assert client.post(f"/api/v1/transactions/{tid}/approve", headers=H({"id": r["owner"], "role": "USER"})).status_code == 410
-    with psycopg.connect(db.info.dsn.replace("password=", "")) as c:  # misma BD
+    with psycopg.connect(dsn()) as c:  # misma BD
         from psycopg.rows import dict_row
         c.row_factory = dict_row
         assert expire_holds(c) == 1

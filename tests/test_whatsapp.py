@@ -1,4 +1,5 @@
 import hashlib
+from tests.conftest import dsn
 import hmac
 import json
 import types
@@ -182,9 +183,9 @@ def test_draw_reminder_is_enqueued_once(db, wa, raffle, mkuser):
     db.execute("UPDATE raffles SET sales_close_at = now() + interval '1 hour', draw_at = now() + interval '5 hours' WHERE id=%s", (r["id"],))
     import psycopg
     from psycopg.rows import dict_row
-    with psycopg.connect(db.info.dsn, row_factory=dict_row) as c:
+    with psycopg.connect(dsn(), row_factory=dict_row) as c:
         assert notify.enqueue_draw_reminders(c) == 1
-    with psycopg.connect(db.info.dsn, row_factory=dict_row) as c:
+    with psycopg.connect(dsn(), row_factory=dict_row) as c:
         assert notify.enqueue_draw_reminders(c) == 0
     p = db.execute("SELECT payload FROM notifications WHERE type='DRAW_REMINDER'").fetchone()["payload"]["params"]
     assert p[0] == "t" and p[2] == f"https://rifa.example/#/r/{r['id']}"

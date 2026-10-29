@@ -1,4 +1,5 @@
 import json
+from tests.conftest import dsn
 import logging
 
 import psycopg
@@ -67,16 +68,16 @@ def test_sentry_is_optional(monkeypatch):
 
 
 def test_windowed_audit_verification_detects_tampering(db):
-    with psycopg.connect(db.info.dsn, row_factory=dict_row) as c:
+    with psycopg.connect(dsn(), row_factory=dict_row) as c:
         for i in range(5):
             write_audit(c, None, "TEST", "x", None, {"i": i})
-    with psycopg.connect(db.info.dsn, row_factory=dict_row) as c:
+    with psycopg.connect(dsn(), row_factory=dict_row) as c:
         assert verify_chain(c) and verify_chain(c, last=3)
     db.execute("ALTER TABLE audit_log DISABLE TRIGGER audit_no_mutation")
     try:
         last_id = db.execute("SELECT max(id) m FROM audit_log").fetchone()["m"]
         db.execute("UPDATE audit_log SET action='ALTERADO' WHERE id=%s", (last_id,))
-        with psycopg.connect(db.info.dsn, row_factory=dict_row) as c:
+        with psycopg.connect(dsn(), row_factory=dict_row) as c:
             assert verify_chain(c, last=3) is False and verify_chain(c) is False
             assert verify_chain(c, last=1) is False
     finally:

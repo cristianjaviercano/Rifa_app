@@ -2,29 +2,35 @@ import os, subprocess, tempfile, uuid
 import psycopg, pytest
 from psycopg.rows import dict_row
 
-def _migrate(c):
-    from app import migrate
-    with psycopg.connect(c.info.dsn, row_factory=dict_row) as m:
-        migrate.apply_all(m)
-
-
 PGBIN = "/usr/lib/postgresql/16/bin"
 PORT = 5433
-os.environ["SGRS_DSN"] = f"postgresql://postgres@127.0.0.1:{PORT}/sgrs"
+EXT = os.environ.get("SGRS_TEST_DSN")  # CI: PostgreSQL ya provisto (con contraseña)
+os.environ["SGRS_DSN"] = EXT or f"postgresql://postgres@127.0.0.1:{PORT}/sgrs"
 os.environ["SGRS_RATE_LIMITS"] = "off"   # las pruebas de límites lo activan explícitamente
 os.environ["SGRS_POOL"] = "0"
 
 
-@pytest.fixture(scope="session")
+def dsn() -> str:
+    """DSN de la base de pruebas, con credenciales (c.info.dsn las omite)."""
+    import app.db
+    return app.db.DSN
+
+
+def _migrate(dsn_):
+    from app import migrate
+    with psycopg.connect(dsn_, row_factory=dict_row) as m:
+        migrate.apply_all(m)
+
+
+@pytest.fixture(scope="session", autouse=True)  # autouse: ninguna prueba depende del orden en que se inicializa la BD
 def pg():
-    ext = os.environ.get("SGRS_TEST_DSN")  # CI: PostgreSQL ya provisto
+    ext = EXT
     if ext:
-        os.environ["SGRS_DSN"] = ext
         import app.db
         app.db.DSN = ext
         with psycopg.connect(ext, autocommit=True) as c:
             c.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public")
-            _migrate(c)
+        _migrate(ext)
         yield ext
         return
     d = tempfile.mkdtemp()
@@ -35,8 +41,7 @@ def pg():
     admin = f"postgresql://postgres@127.0.0.1:{PORT}"
     with psycopg.connect(admin + "/postgres", autocommit=True) as c:
         c.execute("CREATE DATABASE sgrs")
-    with psycopg.connect(admin + "/sgrs", autocommit=True) as c:
-        _migrate(c)
+    _migrate(admin + "/sgrs")
     yield admin + "/sgrs"
     run(f"{PGBIN}/pg_ctl -D {d}/data -m immediate stop")
 

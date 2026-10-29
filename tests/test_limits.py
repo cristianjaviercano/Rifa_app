@@ -1,6 +1,7 @@
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 
+from tests.conftest import dsn
 import pytest
 from fastapi.testclient import TestClient
 
@@ -72,7 +73,7 @@ def test_old_windows_are_purged(db):
     db.execute("INSERT INTO rate_limits VALUES ('x','y', now() - interval '3 days', 5), ('x','z', now(), 1)")
     import psycopg
     from psycopg.rows import dict_row
-    with psycopg.connect(db.info.dsn, row_factory=dict_row) as c:
+    with psycopg.connect(dsn(), row_factory=dict_row) as c:
         appdb.lazy_maintenance(c, force=True)
     keys = {r["key"] for r in db.execute("SELECT key FROM rate_limits WHERE bucket='x'")}
     assert keys == {"z"}
